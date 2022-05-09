@@ -1,0 +1,173 @@
+---
+title: "Capstone Project - Predicting Depression from plasma measurements"
+author: "Zsombor Szoke-Kovacs"
+date: '2022-04-22'
+output: pdf_document
+---
+
+# **Introduction**
+
+First we load the data sheet fownloaded from the Metabolomics website:
+https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1
+I have edited the data set; some of the measured molecules have been removed from the list
+due to simplicity, and also, these did not have names, only ID numbers.
+```{r}
+library("readxl")
+library("dplyr")
+library("ggplot2")
+library('corrplot')
+# Here, I set the file to a path on my computer, but once this is saved to a 
+# different computer, the path will need to be changed.
+file_original <- "~/Desktop/HarvardX, EdX, Data Science/Capstone Project/Capstone Project - Chosen Project/Capstone Project - Chosen Project/Depression data-simple.xlsx"
+temp_file <- read_excel(file_original)
+# head(temp_file)
+# Converting the temp file into a data frame.
+file_df <- as.data.frame(t(temp_file))
+# removing unnecessary rows/columns
+data <- file_df[c(-2,-3,-4),c(-1,-3,-4,-5,-7)]
+```
+
+Setting col names for the data frame:
+```{r}
+data_t_1 <- as.data.frame(t(data))
+# Adding new column names for the molecules and the arm:
+data[1,1] <- 'Samples'
+data[1,2] <- 'Arm'
+colnames(data) <-data[1,]
+# Remove first row from the data frame:
+data <- data[-1,]
+
+```
+Do a t probe to see if there are significantly different values between the two groups.
+First, I set two groups, based on their arms: Group 1 arm (control), and Group 2 arm (diagnosed with depression).
+```{r}
+# Separate the two arms from the data set:
+group_1 <- data %>% group_by(Arm) %>% filter(Arm == "Group 1 - Score 0")
+group_1_truncated <- group_1[, c(-1, -2)]
+group_2 <- data %>% group_by(Arm) %>% filter(Arm == "Group 2 - Score 50")
+group_2_truncated <- group_2[, c(-1, -2)]
+```
+Next, we check if the distribution of the data is approximately normal, so we can apply
+the unpaired t-test to see significant differences:
+```{r}
+# I generated and investigated the distribution of each measured parameter within the two groups
+# (patients with Depression and patients in the control group) using the below codes.
+# However, due to these produces many plots, I commented these out in the .rmd file.
+
+# Group 1:
+
+#for (i in group_1_truncated){
+# plot <- group_1_truncated %>% ggplot(aes(x = as.numeric(i))) + 
+#  geom_density()
+#print(plot)
+}
+
+# Group 2
+
+#for (i in group_2_truncated){
+#  plot <- group_2_truncated %>% ggplot(aes(x = as.numeric(i))) + 
+#    geom_density()
+#  print(plot)
+#}
+
+# I have also used Shapiro-Wilk's method (http://www.sthda.com/english/wiki/normality-test-in-r)
+# to get a value of the normality of each parameter. The null hypothesis of this tests is 
+# that “the sample distribution is normal”. So, if the p-value > 0.05, this implies that the 
+# distribution of the data is not significantly different from the normal distribution. 
+# In other words, we can assume normality.
+# Loop through the truncated and transposed list and generating Shapiro-Wilk's test for each column in the data set:
+# I use the magicfor library to record p-values in a vector:
+library(magicfor)
+# Group 1:
+magic_for(print)
+# For loop for collecting all p-values and printing them to the console:
+for (c in group_1_truncated){
+  # shap test for each col
+  shap_test <- shapiro.test(as.numeric(c))
+  output <- shap_test$p.value
+  print(output)
+}
+# Saving printed p-values as a vector:
+p_values_vector_group_1 <- magic_result_as_vector()
+# Binding vector to the original data, so the last row is the p-value from the Shapiro-Wilk's test:
+group_1_truncated_with_pvalues <- rbind(group_1_truncated,p_values_vector_group_1)
+group_1_truncated_with_pvalues
+
+# Group 2:
+magic_for(print)
+# For loop for collecting all p-values and printing them to the console:
+for (c in group_2_truncated){
+  # shap test for each col
+  shap_test <- shapiro.test(as.numeric(c))
+  output <- shap_test$p.value
+  print(output)
+}
+# Saving printed p-values as a vector:
+p_values_vector_group_2 <- magic_result_as_vector()
+# Binding vector to the original data, so the last row is the p-value from the Shapiro-Wilk's test:
+group_2_truncated_with_pvalues <- rbind(group_2_truncated,p_values_vector_group_2)
+group_2_truncated_with_pvalues
+```
+Now, that I have the p-values for the Shapiro-Wilk's test for both groups, I will transpose
+the data frames, so I will have the p-values in a separate column and the data frame in tidy format:
+```{r}
+# Group 1
+group_1_tidy <- as.data.frame(t(group_1_truncated_with_pvalues))
+# adding on extra row that will be used for the column names
+group_1_tidy<- add_row(group_1_tidy, .before = 1)
+# using sample names for column names
+group_1_tidy[1,1:48] <- group_1$Samples
+# adding name for extra column
+group_1_tidy[1,49] <- "Shapiro-Wilk's p-values"
+# use first row as column names
+colnames(group_1_tidy) <- group_1_tidy[1,]
+group_1_tidy <- group_1_tidy[-1,]
+group_1_tidy
+
+# Group 2
+group_2_tidy <- as.data.frame(t(group_2_truncated_with_pvalues))
+# adding on extra row that will be used for the column names
+group_2_tidy<- add_row(group_2_tidy, .before = 1)
+group_2_tidy
+# using sample names for column names
+group_2_tidy[1,1:49] <- group_2$Samples
+# adding name for extra column
+group_2_tidy[1,50] <- "Shapiro-Wilk's p-values"
+# use first row as column names
+colnames(group_2_tidy) <- group_2_tidy[1,]
+group_2_tidy <- group_2_tidy[-1,]
+group_2_tidy
+
+```
+
+
+First, I want to see if there is any molecule that would stand out as a difference 
+between the two groups. For this I would will stratify the data and compare the results between group 1 and group 2.
+Group 1 and Group 2.s
+
+# **Project Background**
+```{r}
+
+```
+
+# ** Methods and Data Analysis Workflow
+```{r}
+
+```
+
+# **Data Preparation**
+```{r}
+
+```
+
+# **Data Analysis**
+```{r}
+
+```
+
+# **Results and Conclusions**
+```{r}
+
+```
+
+# **Future Perspectives**
