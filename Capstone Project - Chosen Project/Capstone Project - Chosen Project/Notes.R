@@ -7,3 +7,7 @@
 # 5. sweep() function in R Language is used to apply the operation “+ or -” to 
 # the row or column in data matrix
 ??qplot
+
+# GIT
+# To add a new upstream: git add remote <remote_name> URL
+# To push to this remote: git push <remote_name>

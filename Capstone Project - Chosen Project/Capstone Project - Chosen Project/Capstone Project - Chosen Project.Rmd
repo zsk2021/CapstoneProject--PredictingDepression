@@ -6,54 +6,64 @@ output: pdf_document
 ---
 
 # **Introduction**
+# **Project Background**
 
-First we load the data sheet fownloaded from the Metabolomics website:
+# ** Methods and Data Analysis Workflow**
+
+# **DATA PREPARATION**
+First we load the data sheet downloaded from the Metabolomics website:
 https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1
 I have edited the data set; some of the measured molecules have been removed from the list
-due to simplicity, and also, these did not have names, only ID numbers.
+due to simplicity and also due to these did not have names, only ID numbers. A simplified
+data sheet is used to do the analysis.
 ```{r}
 library("readxl")
 library("dplyr")
 library("ggplot2")
 library('corrplot')
+library(purrr)
 # Here, I set the file to a path on my computer, but once this is saved to a 
-# different computer, the path will need to be changed.
+# different computer, the path will need to be updated. The simplified data sheet 
+# can also be downloaded from my git repository.
 file_original <- "~/Desktop/HarvardX, EdX, Data Science/Capstone Project/Capstone Project - Chosen Project/Capstone Project - Chosen Project/Depression data-simple.xlsx"
 temp_file <- read_excel(file_original)
-# head(temp_file)
-# Converting the temp file into a data frame.
+# Converting the temp file into a transposed data frame.
 file_df <- as.data.frame(t(temp_file))
 # removing unnecessary rows/columns
 data <- file_df[c(-2,-3,-4),c(-1,-3,-4,-5,-7)]
 ```
 
-Setting col names for the data frame:
+To be able to work with the data sheet, new column names are introduced:
 ```{r}
-data_t_1 <- as.data.frame(t(data))
+#data_t_1 <- as.data.frame(t(data))
 # Adding new column names for the molecules and the arm:
 data[1,1] <- 'Samples'
 data[1,2] <- 'Arm'
 colnames(data) <-data[1,]
 # Remove first row from the data frame:
 data <- data[-1,]
-
+# By investigating the data, we can see that measurements come from two groups:
+# Group 1 (control) and Group 2 (patients diagnosed with depression):
+data %>% group_by(Arm) %>% summarise(n = n())
 ```
-Do a t probe to see if there are significantly different values between the two groups.
-First, I set two groups, based on their arms: Group 1 arm (control), and Group 2 arm (diagnosed with depression).
+To analyse the relationship between the different measurements between the two groups, 
+I first separate the two arms and remove unnecessary columns:
 ```{r}
 # Separate the two arms from the data set:
 group_1 <- data %>% group_by(Arm) %>% filter(Arm == "Group 1 - Score 0")
 group_1_truncated <- group_1[, c(-1, -2)]
 group_2 <- data %>% group_by(Arm) %>% filter(Arm == "Group 2 - Score 50")
 group_2_truncated <- group_2[, c(-1, -2)]
+group_1_truncated
+group_2_truncated
 ```
-Next, we check if the distribution of the data is approximately normal, so we can apply
-the unpaired t-test to see significant differences:
+#**DATA ANALYSIS**
+## *Data distribution*
+To be able to compare the differences between the two groups, I next look at the distribution 
+of the data in each measurement and in each arm. I generated and investigated the distribution of 
+each measured parameter within the two groups using the codes below. However, due to these produce
+many plots (144 plots per arm), I commented these out in the .rmd file.
 ```{r}
-# I generated and investigated the distribution of each measured parameter within the two groups
-# (patients with Depression and patients in the control group) using the below codes.
-# However, due to these produces many plots, I commented these out in the .rmd file.
-
 # Group 1:
 
 #for (i in group_1_truncated){
@@ -69,18 +79,19 @@ the unpaired t-test to see significant differences:
 #    geom_density()
 #  print(plot)
 #}
+```
 
-# I have also used Shapiro-Wilk's method (http://www.sthda.com/english/wiki/normality-test-in-r)
-# to get a value of the normality of each parameter. The null hypothesis of this tests is 
-# that “the sample distribution is normal”. So, if the p-value > 0.05, this implies that the 
-# distribution of the data is not significantly different from the normal distribution. 
-# In other words, we can assume normality.
-# Loop through the truncated and transposed list and generating Shapiro-Wilk's test for each column in the data set:
-# I use the magicfor library to record p-values in a vector:
+Instead, I used Shapiro-Wilk's method (http://www.sthda.com/english/wiki/normality-test-in-r)
+to get a value of the normality for each measured parameter. The null hypothesis of this tests is 
+that “the sample distribution is normal”. So, if the p-value is >0.05, that implies that the 
+distribution of the data is not significantly different from the normal distribution. 
+In other words, if the p-value is >0.05 we can assume normality. 
+First, I loop through the truncated and transposed list and generate Shapiro-Wilk's test for 
+each column in the data set. I use the magicfor library to record p-values in a vector:
+```{r}
 library(magicfor)
 # Group 1:
 magic_for(print)
-# For loop for collecting all p-values and printing them to the console:
 for (c in group_1_truncated){
   # shap test for each col
   shap_test <- shapiro.test(as.numeric(c))
@@ -91,7 +102,6 @@ for (c in group_1_truncated){
 p_values_vector_group_1 <- magic_result_as_vector()
 # Binding vector to the original data, so the last row is the p-value from the Shapiro-Wilk's test:
 group_1_truncated_with_pvalues <- rbind(group_1_truncated,p_values_vector_group_1)
-group_1_truncated_with_pvalues
 
 # Group 2:
 magic_for(print)
@@ -106,12 +116,16 @@ for (c in group_2_truncated){
 p_values_vector_group_2 <- magic_result_as_vector()
 # Binding vector to the original data, so the last row is the p-value from the Shapiro-Wilk's test:
 group_2_truncated_with_pvalues <- rbind(group_2_truncated,p_values_vector_group_2)
+# Remove magicalization:
+magic_free()
+# The last row in these two data frames are the Shapiro-Wilk's p-values:
+group_1_truncated_with_pvalues
 group_2_truncated_with_pvalues
 ```
-Now, that I have the p-values for the Shapiro-Wilk's test for both groups, I will transpose
-the data frames, so I will have the p-values in a separate column and the data frame in tidy format:
+Now that I have the p-values for the Shapiro-Wilk's test for the measured parameters from
+each arm, I transposevthe data frames, so the p-values are in a separate column and the data frame in tidy format:
 ```{r}
-# Group 1
+# Group 1 - transpose
 group_1_tidy <- as.data.frame(t(group_1_truncated_with_pvalues))
 # adding on extra row that will be used for the column names
 group_1_tidy<- add_row(group_1_tidy, .before = 1)
@@ -122,13 +136,13 @@ group_1_tidy[1,49] <- "Shapiro-Wilk's p-values"
 # use first row as column names
 colnames(group_1_tidy) <- group_1_tidy[1,]
 group_1_tidy <- group_1_tidy[-1,]
+# The last column is the Shapiro-Wilk's p-values
 group_1_tidy
 
-# Group 2
+# Group 2 -transpose
 group_2_tidy <- as.data.frame(t(group_2_truncated_with_pvalues))
 # adding on extra row that will be used for the column names
 group_2_tidy<- add_row(group_2_tidy, .before = 1)
-group_2_tidy
 # using sample names for column names
 group_2_tidy[1,1:49] <- group_2$Samples
 # adding name for extra column
@@ -136,38 +150,113 @@ group_2_tidy[1,50] <- "Shapiro-Wilk's p-values"
 # use first row as column names
 colnames(group_2_tidy) <- group_2_tidy[1,]
 group_2_tidy <- group_2_tidy[-1,]
+# The last column is the Shapiro-Wilk's p-values
 group_2_tidy
+```
+Now that I have the data for the two arms, together with the p-values for normal distribution,
+I filter the data to keep the measured parameters, where the distribution was approximately
+normal. In other words, I keep all measured parameters, where the p-value was >0,05:
+```{r}
+group_1_tidy <- group_1_tidy %>% filter(`Shapiro-Wilk's p-values`>0.05)
+group_2_tidy <- group_2_tidy %>% filter(`Shapiro-Wilk's p-values`>0.05)
+# There are 97 and 112 measured parameters where the p-value is >0.05 in Group 1 
+# and Group 2, respectively. Group 1 has 48 patients, whereas Group 2 has 49. The extra
+# column in each data frame is the Shapiro-Wilk's p-value.
+group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], ncol = dim(group_1_tidy)[2])
+group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], ncol = dim(group_2_tidy)[2])
+```
+Due to the number of the normally distributed measured parameters are different in the two groups,
+I will work with the list from the control group (Group 1 - baseline), where the normally distributed 
+parameters were 97 (as opposed to Group 2 where it was 112). I use semi_join to keep only the records 
+from Group 2, that have a match in Group 1.
+```{r}
+# Adding row names as an extra column, so I can use semi_join:
+group_1_tidy <- cbind(group_1_tidy, rownames = rownames(group_1_tidy))
+group_2_tidy <- cbind(group_2_tidy, rownames = rownames(group_2_tidy))
+# we should have one extra column in each data fram:
+group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], ncol = dim(group_1_tidy)[2])
+group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], ncol = dim(group_2_tidy)[2])
+# Keep everything from Group 1 with a match in Group 2:
+group_1_tidy <- semi_join(group_1_tidy, group_2_tidy, by = "rownames")
+# Keep everything from Group 2 with a match in Group 1:
+group_2_tidy <- semi_join(group_2_tidy, group_1_tidy, by = "rownames")
+# Investigating the dimensions of the two newly generated data frames, we can see, that
+# both arms have 78 measured parameters, as well as 48 and 49 sample count (plus the two columns
+# with p-values and row names), respectively.
+group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], ncol = dim(group_1_tidy)[2])
+group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], ncol = dim(group_2_tidy)[2])
+```
+##*Two-sample t-test*
+In this next section, I will calculate two-sample t-tests for the selected parameters, so I can
+see if there is a significant difference in any parameters between the two groups.
+First, I transpose the data frame generated above and remove unnecessary rows.
+```{r}
+# Transpose tidy data, so I can loop through the columns: Group 1
+group_1_tidy_t <- as.data.frame(t(group_1_tidy))
+# Removing last two rows with p-values and row names:
+group_1_tidy_t <- group_1_tidy_t[c(-49,-50),]
+# Transpose tidy data, so I can loop through the columns: Group 2
+group_2_tidy_t <- as.data.frame(t(group_2_tidy))
+# Removing last two rows with p-values and row names:
+group_2_tidy_t <- group_2_tidy_t[c(-50,-51),]
+# The two data set has 78 measured parameters and 48 and 49 samples, respectively:
+group_1_tidy_t %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy_t)[1], ncol = dim(group_1_tidy_t)[2])
+group_2_tidy_t %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy_t)[1], ncol = dim(group_2_tidy_t)[2])
+```
+Now, that I have the two data frames with the same measured parameters in both, and all 
+of the measurements show approximately normal distribution, I can test the vectors for 
+significant differences:
+```{r}
+# Two-sample t-test by looping through the columns:
+magic_for(print)
+for (j in seq(ncol(group_1_tidy_t))){
+  testresults <- t.test(as.numeric(group_1_tidy_t[,j]), as.numeric(group_2_tidy_t[,j]))
+  print(testresults$p.value)
+}
+# Saving p-values from the two-sample t-test into a dataframe, and adding the 
+twosample_ttest <- magic_result_as_dataframe()
+magic_free()
+# Adding the names of the measured parameters to the p-values:
+colnames(twosample_ttest)[1] <- 'rownames'
+twosample_ttest$`Measured parameters` <- colnames(group_1_tidy_t)
+# Filtering out measured parameters that showed significant differences between
+# the two groups: 
+twosample_ttest_significant <- twosample_ttest %>% filter(`testresults$p.value` <= 0.05)
+# There are 15 measured parameters that show normal distribution, and there is a significant difference
+# between the two groups:
+twosample_ttest_significant
+```
+##*Correlation analysis*
+From the previous section, I have a set of measured parameters that show significant difference
+of the mean between the two arms. To see the actual relationship between the two groups, I will use correlation
+analysis for the 15 parameters. Initially, I will subset the two dataframes group_1_tidy
+and group_2_tidy, to only consist of the 15 parameters of interest.
+```{r}
+group_1_final <- semi_join(group_1_tidy, twosample_ttest_significant, by = 'rownames')
+group_1_final <- group_1_final[,c(-49,-50)]
 
+group_2_final <- semi_join(group_2_tidy, twosample_ttest_significant, by = 'rownames')
+group_2_final <- group_2_final[,c(-50,-51)]
+
+# Here I have two dataframes from the two arms, one control and one diagnosed with depression,
+# where the parameters of interest are included only. The dataframes consist of 48 and 49 
+# patients, respectively:
+group_1_final %>% summarise(Arm = 'Group 1', nrow = dim(group_1_final)[1], ncol = dim(group_1_final)[2])
+group_2_final %>% summarise(Arm = 'Group 2', nrow = dim(group_2_final)[1], ncol = dim(group_2_final)[2])
 ```
 
 
-First, I want to see if there is any molecule that would stand out as a difference 
-between the two groups. For this I would will stratify the data and compare the results between group 1 and group 2.
-Group 1 and Group 2.s
-
-# **Project Background**
 ```{r}
 
 ```
 
-# ** Methods and Data Analysis Workflow
 ```{r}
 
 ```
 
-# **Data Preparation**
+# ***RESULTS AND CONCLUSION**
 ```{r}
 
 ```
 
-# **Data Analysis**
-```{r}
-
-```
-
-# **Results and Conclusions**
-```{r}
-
-```
-
-# **Future Perspectives**
+# **FUTURE PERSPECTIVES**
