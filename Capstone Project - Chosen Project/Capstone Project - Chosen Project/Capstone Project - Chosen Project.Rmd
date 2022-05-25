@@ -13,11 +13,11 @@ output:
 
 # *Methods and Data Analysis Workflow*  
 
-# **DATA PREPARATION**  
+# **Data preparation**  
 First we load the data sheet downloaded from the Metabolomics website:
 https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1
 I have edited the data set; some of the measured molecules have been removed from the list
-due to simplicity and also due to these did not have names, only ID numbers. A simplified
+for simplicity and also due to these did not have names, only ID numbers. A simplified
 data sheet is used to do the analysis.
 ```{r, warning=FALSE, message=FALSE}
 library("readxl")
@@ -27,11 +27,14 @@ library('ggfortify')
 library('corrplot')
 library('stats')
 library('purrr')
-library(caTools)
-library(e1071)
+library('caTools')
+library('e1071')
+library('randomForest')
+library('stringr')
 # Here, I set the file to a path on my computer, but once this is saved to a 
 # different computer, the path will need to be updated. The simplified data sheet 
-# can also be downloaded from my git repository.
+# can also be downloaded from my git repository: 
+# https://github.com/zsk2021/CapstoneProject--PredictingDepression
 file_original <- "~/Desktop/HarvardX, EdX, Data Science/Capstone Project/Capstone Project - Chosen Project/Capstone Project - Chosen Project/Depression data-simple.xlsx"
 temp_file <- read_excel(file_original)
 # Converting the temp file into a transposed data frame.
@@ -39,7 +42,7 @@ file_df <- as.data.frame(t(temp_file))
 # removing unnecessary rows/columns
 data <- file_df[c(-2,-3,-4),c(-1,-3,-4,-5,-7)]
 ```
-To be able to work with the data set, new column names are introduced:
+New column names are introduced:
 ```{r, warning=FALSE, message=FALSE}
 # Adding new column names for the molecules and the arm:
 data[1,1] <- 'Samples'
@@ -54,17 +57,15 @@ data %>% group_by(Arm) %>% summarise(n = n())
 To analyse the relationship between the different measurements between the two groups, 
 I first separate the two arms and remove unnecessary columns:
 ```{r, warning=FALSE, message=FALSE}
-# Separate the two arms from the data set:
 group_1 <- data %>% group_by(Arm) %>% filter(Arm == "Group 1 - Score 0")
 group_1_truncated <- group_1[, c(-1, -2)]
 group_2 <- data %>% group_by(Arm) %>% filter(Arm == "Group 2 - Score 50")
 group_2_truncated <- group_2[, c(-1, -2)]
 ```
-# **DATA ANALYSIS**  
+# **Data analysis**  
 ## *Data distribution*  
-To be able to compare the differences between the two groups, I next look at the distribution 
-of the data in each measurement and in each arm. I generated and investigated the distribution of 
-each measured parameter within the two groups using the codes below. However, due to these produce
+I first look at the distribution of the data for each measurement for the two arms, 
+by generating graphs with the codes below. Due to these produce
 many plots (144 plots per arm), I commented these out in the .rmd file.
 ```{r, warning=FALSE, message=FALSE}
 # Group 1:
@@ -84,13 +85,13 @@ many plots (144 plots per arm), I commented these out in the .rmd file.
 #}
 ```
 Instead, I used Shapiro-Wilk's method (http://www.sthda.com/english/wiki/normality-test-in-r)
-to get a value of the normality for each measured parameter. The null hypothesis of this tests is 
+to get a value of the normality for each measured parameter. The null hypothesis for this test is 
 that “the sample distribution is normal”. So, if the p-value is >0.05, that implies that the 
 distribution of the data is not significantly different from the normal distribution. 
 In other words, if the p-value is >0.05 we can assume normality. 
 First, I loop through the truncated and transposed list and generate Shapiro-Wilk's test for 
 each column in the data set. I use the magicfor library to record p-values in a vector:
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, results= 'hide'}
 library(magicfor)
 # Group 1:
 magic_for(print)
@@ -100,29 +101,30 @@ for (c in group_1_truncated){
   output <- shap_test$p.value
   print(output)
 }
-# Saving printed p-values as a vector:
+# Saving the printed p-values as a vector:
 pvalues_group_1 <- magic_result_as_vector()
 # Binding vector to the original data, so the last row is the p-value from the 
 # Shapiro-Wilk's test:
-group_1_truncated_with_pvalues <- rbind(group_1_truncated,pvalues_group_1)
+group_1_truncated_with_pvalues <- rbind(group_1_truncated, pvalues_group_1)
 
 # Group 2:
 magic_for(print)
-# For loop for collecting all p-values and printing them to the console:
 for (c in group_2_truncated){
   # shap test for each col
   shap_test <- shapiro.test(as.numeric(c))
   output <- shap_test$p.value
   print(output)
 }
-# Saving printed p-values as a vector:
+# Saving the printed p-values as a vector:
 pvalues_group_2 <- magic_result_as_vector()
 # Binding vector to the original data, so the last row is the p-value from the 
 # Shapiro-Wilk's test:
 group_2_truncated_with_pvalues <- rbind(group_2_truncated,pvalues_group_2)
 # Remove magicalization:
 magic_free()
-# The last row in these two data frames are the Shapiro-Wilk's p-values:
+```
+The last row in these two data frames are the Shapiro-Wilk's p-values:
+```{r, warning=FALSE, message=FALSE}
 group_1_truncated_with_pvalues %>% 
   summarise(Arm = 'Group 2', 
             nrow = dim(group_1_truncated_with_pvalues)[1], 
@@ -131,10 +133,10 @@ group_2_truncated_with_pvalues %>%
   summarise(Arm = 'Group 2', 
             nrow = dim(group_2_truncated_with_pvalues)[1], 
             ncol = dim(group_2_truncated_with_pvalues)[2])
-
 ```
-Now that I have the p-values for the Shapiro-Wilk's test for the measured parameters from
-each arm, I transpose the data frames, so the p-values are in a separate column and the data frame in tidy format:
+Now, that I have the p-values for the Shapiro-Wilk's test for the measured parameters from
+each arm, I transpose the data frames, so the p-values are in a separate column and the data 
+frame is in tidy format:
 ```{r, warning=FALSE, message=FALSE}
 # Group 1 - transpose
 group_1_tidy <- as.data.frame(t(group_1_truncated_with_pvalues))
@@ -166,7 +168,7 @@ group_2_tidy <- group_2_tidy[-1,]
 group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], 
                            ncol = dim(group_2_tidy)[2])
 ```
-Now that I have the data for the two arms, together with the p-values for normal distribution,
+Now, that I have the data for the two arms, together with the p-values for normal distribution,
 I filter the data to keep the measured parameters, where the distribution was approximately
 normal. In other words, I keep all measured parameters, where the p-value was >0,05:
 ```{r, warning=FALSE, message=FALSE}
@@ -227,14 +229,16 @@ group_2_tidy_t %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy_t)[1],
 Now, that I have the two data frames with the same measured parameters in both, and all 
 of the measurements show approximately normal distribution, I can test the vectors for 
 significant differences:
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, results = 'hide'}
 # Two-sample t-test by looping through the columns:
 magic_for(print)
 for (j in seq(ncol(group_1_tidy_t))){
   testresults <- t.test(as.numeric(group_1_tidy_t[,j]), as.numeric(group_2_tidy_t[,j]))
   print(testresults$p.value)
 }
-# Saving p-values from the two-sample t-test into a dataframe, and adding the 
+```
+Saving p-values from the two-sample t-test into a data frame:
+```{r, warning=FALSE, message=FALSE}
 twosample_ttest <- magic_result_as_dataframe()
 magic_free()
 # Adding the names of the measured parameters to the p-values:
@@ -271,7 +275,7 @@ Now that I have the two data frames with the 15 measured parameters that showed 
 normal distribution and significant differences between the two groups, I will merge the 
 two arms, and will generate a new data frame with all of the subjects and the 15 measured parameters.
 I will use this data frame for my further work:
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # First, I create a new column in both data frames, so I can merge these with 
 # left_join()
 group_1_final <- cbind(group_1_final, rownames = rownames(group_1_final))
@@ -284,7 +288,7 @@ rownames(df) <- df$rownames
 df <- subset(df, select = -rownames)
 ```
 Testing for correlation:
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # In the above section, I generated my data set with all 15 parameters and the entire cohort.
 # I now transpose this and will do a correlation analysis to see if any of these
 # parameters are correlated:
@@ -306,7 +310,7 @@ cor_15_param %>% filter(cor_15_param >= 0.7)
 ## *Linearity between the two arms*  
 I have also looked at the other features, whether these are linearly separable between the two arms.
 Values from each measured parameters are plotted on y and the arm is plotted on x.
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # code is commented to avoid the printing of an excess amount of graphs:
 # for (v in data[,c(-1,-2)]){
 #  plot(as.numeric(v), col = as.factor(data$Arm))
@@ -315,8 +319,9 @@ Values from each measured parameters are plotted on y and the arm is plotted on 
 Based on the plots generated by the above code, the values do not show a linear 
 association between the two arms.
 
+# **Model fitting**  
 ## *Creating the train and test data sets*   
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # Creating a training and test set from the data frame df_num:
 # First I add the arm to the data set, so the split can be done based on these features:
 df_num_sp <- cbind(df_num, Arm = data$Arm)
@@ -328,11 +333,10 @@ index_train <- sample.split(tr_set$Arm, SplitRatio = .5)
 tr_set_train <- subset(tr_set, index_train == TRUE)
 tr_set_test <- subset(tr_set, index_train == FALSE)
 ```
-# **MODEL FITTING**  
-# *K-means Clustering*  
+## *K-means Clustering*  
 I used K-means clustering to see the structure of the data, however, the number of 
 data points in each groups did not agree with the actual sample numbers in each arms:
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # I used the df_t data set, that is a transposed format of the 15 significant measurements
 # from the two arms. Parameters are in the columns, and samples in rows. Here we can see
 # the group sizes and the ratio of the between sum of squares to the total sum of 
@@ -386,12 +390,15 @@ is a less good fit (53.5%) than that of the 3 clusters (75.2%). Hence, I will be
 using the parameters selected from the k-means analysis ran with 3 clusters.
 
 ## *Support Vector Machine*  
+Due to I am predicting a categorical variable, using numeric variables, this is a classical example of 
+a classification model. In this example, the arm is the predicted, whereas the parameters
+are the predictor variables.
 Now, that I have the parameters that show the best separation,I will train the SVM 
 on the training set. Here I train the SVM to predict the Arm, based on the variables 
 that showed  significant difference between the two arms, and gave the best cluster 
 separation: stearic acid, sorbitol, nicotinamide, mannose, heptadecanoic acid, glutaric acid, 
 glutamic acid and behenic acid.
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # SVM model with linear kernel
 svm_model_linear <- svm(as.factor(Arm)~
                           as.numeric(tr_set_train$`stearic acid`) +
@@ -414,7 +421,7 @@ mean_linear_test <- mean(predict_test_linear == tr_set_test$Arm)
 mean_linear_test
 ```
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # SVM model with radial kernel:
 svm_model_radial <- svm(as.factor(Arm)~
                           as.numeric(tr_set_train$`stearic acid`) +
@@ -437,8 +444,9 @@ mean_radial_test <- mean(predict_test_radial == tr_set_test$Arm)
 mean_radial_test
 ```
 
-Next, I will apply SVM on the data set, but first I standardize the features:
-```{r}
+Next, I will apply SVM on the standardized data set. I will use the scale() function, that 
+calculates the Z-score for each variable.
+```{r, warning=FALSE, message=FALSE}
 # Creating a standardized training and test set from the data frame df_num:
 df_num_st <- as_tibble(scale(df_num))
 df_num_st <- cbind(df_num_st, Arm = data$Arm)
@@ -504,10 +512,74 @@ mean_radial_test_st <- mean(predict_test_radial_st == tr_set_test_st$Arm)
 mean_radial_test_st
 ```
 
-# **VALIDATION**  
+## *Random Forest model*
+Another classification model is the Random Forest (RF) model, that is an evolved form
+of the Decision Trees (DTs). In this section, I will build a RF model for the 15 selected
+parameters. I will use the data set converted into numbers df_num. First, I will 
+bind the 'Arm' predicted variable to the data set, then I will transform the column
+titles, so these do not consist of any special characters or spaces:
+```{r, warning=FALSE, message=FALSE}
+# Binding the Arm variables to the df_num data set:
+df_num_RMF <- cbind(df_num, Arm = data$Arm)
+# Converting the parameter names, so these do not consist space or any illegal characters:
+df_colnames <- sub(' ', '_', colnames(df_num_RMF))
+df_colnames <- sub('-', '_', df_colnames)
+# Adding back the converted names to the column headers.
+colnames(df_num_RMF) <- df_colnames
+```
+Next, I will create a new set of train and test sets:
+```{r, warning=FALSE, message=FALSE}
+# Creating a training and test set from the data frame df_num_RMF:
+index_RMF <- sample.split(df_num_RMF$Arm, SplitRatio = .7)
+tr_set_RMF <- subset(df_num_RMF, index == TRUE)
+final_val_set_RMF <- subset(df_num_RMF, index == FALSE)
+# Splitting the train set into further train and test sets:
+index_train_RMF <- sample.split(tr_set_RMF$Arm, SplitRatio = .7)
+tr_set_train_RMF <- subset(tr_set_RMF, index_train == TRUE)
+tr_set_test_RMF <- subset(tr_set_RMF, index_train == FALSE)
+```
+Building the RMF model:
+```{r, warning=FALSE, message=FALSE}
+RMF <- randomForest(as.factor(Arm)~sorbitol + 
+                      nicotinamide + 
+                      stearic_acid + 
+                      mannose + 
+                      heptadecanoic_acid + 
+                      glutaric_acid + 
+                      glutamic_acid + 
+                      behenic_acid, 
+                    data = tr_set_train_RMF)
+
+# Now that we have built the RMF model, we use the predict function to get the
+# predicted values for the data set:
+predict_RMF_tr <- predict(RMF, tr_set_train_RMF)
+# Adding the predicted arms to the data set:
+tr_set_train_RMF$predict_RMF_tr <- predict_RMF_tr
+# Compare the predictions and the actual values to see the accuracy of the model
+# using the table() function (building a confusion matrix):
+CFM_tr <- table(tr_set_train_RMF$Arm, tr_set_train_RMF$predict_RMF_tr)
+CFM_tr
+# Calculating the accuracy of the testing data can be measured by adding together 
+# all the diagonal values, and dividing with the sum of all values:
+classification_accuracy_tr <- sum(diag(CFM_tr)/sum(CFM_tr))
+classification_accuracy_tr
+```
+Testing the model on the test set:
+```{r, warning=FALSE, message=FALSE}
+predict_RMF_test <- predict(RMF, tr_set_test_RMF)
+tr_set_test_RMF$predict_RMF_test <- predict_RMF_test
+CFM_test <- table(tr_set_test_RMF$Arm, tr_set_test_RMF$predict_RMF_test)
+CFM_test
+classification_accuracy_test <- sum(diag(CFM_test)/sum(CFM_test))
+classification_accuracy_test
+```
+A standardized data has also been tested for building an RMF model, however, this also 
+led to a low accuracy.
+
+# **Validation**
 ## *SVM*  
 Validating the SVM model (linear and radial)
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # Non-standardized Values - Linear
 predict_valid_linear <- predict(svm_model_linear, final_val_set)
 mean_linear_valid <- mean(predict_valid_linear == final_val_set$Arm)
@@ -525,20 +597,37 @@ predict_valid_radial_st <- predict(svm_model_radial_st, final_val_set_st)
 mean_radial_valid_st <- mean(predict_valid_radial_st == final_val_set_st$Arm)
 mean_radial_valid_st
 ```
+## *RMF*
+Validating the RMF model:
+```{r, warning=FALSE, message=FALSE}
+predict_valid_RMF <- predict(RMF, final_val_set_RMF)
+mean_RMF_valid <- mean(predict_valid_RMF == final_val_set_RMF$Arm)
+mean_RMF_valid
+final_val_set_RMF$predict_valid_RMF <- predict_valid_RMF
+CFM_val <- table(final_val_set_RMF$Arm, final_val_set_RMF$predict_valid_RMF)
+CFM_val
+classification_accuracy_val <- sum(diag(CFM_val)/sum(CFM_val))
+classification_accuracy_val
+```
 
-# **RESULTS AND CONCLUSION**  
-```{r}
+# **Results and conclusions**  
+```{r, warning=FALSE, message=FALSE}
 model_results_tibble <- tibble(Models = c("SVM Linear","SVM Radial", 
-                                          "SVM Linear Standardized", "SVM Radial Standardized"),
+                                          "SVM Standardized Linear", 
+                                          "SVM Standardized Radial",
+                                          "RMF"),
                                TrainFit = c(mean_linear_train, mean_radial_train,
-                                            mean_linear_train_st, mean_radial_train_st),
+                                            mean_linear_train_st, mean_radial_train_st,
+                                            classification_accuracy_tr),
                                TestFit = c(mean_linear_test, mean_radial_test,
-                                           mean_linear_test_st, mean_radial_test_st),
+                                           mean_linear_test_st, mean_radial_test_st,
+                                           classification_accuracy_test),
                                Validation = c(mean_linear_valid, mean_radial_valid, 
-                                              mean_linear_valid_st, mean_radial_valid_st)) %>% 
+                                              mean_linear_valid_st, mean_radial_valid_st,
+                                              classification_accuracy_val)) %>% 
   mutate(TestFit = sprintf("%0.4f", TestFit))
   
 model_results_tibble
 ```
 
-# **FUTURE PERSPECTIVES**  
+# **Future perspectives**  
