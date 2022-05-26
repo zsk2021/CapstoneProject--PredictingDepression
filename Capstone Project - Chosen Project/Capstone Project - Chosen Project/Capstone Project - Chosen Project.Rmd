@@ -31,6 +31,7 @@ library('caTools')
 library('e1071')
 library('randomForest')
 library('stringr')
+library('class')
 # Here, I set the file to a path on my computer, but once this is saved to a 
 # different computer, the path will need to be updated. The simplified data sheet 
 # can also be downloaded from my git repository: 
@@ -511,6 +512,30 @@ predict_test_radial_st <- predict(svm_model_radial_st, tr_set_test_st)
 mean_radial_test_st <- mean(predict_test_radial_st == tr_set_test_st$Arm)
 mean_radial_test_st
 ```
+## *k-NN model
+In this section I will work with the standardized dataset, adn I will fit a k-NN model
+using this data set:
+```{r}
+# Re-initializing the scaled data set used for the k-means calculation above
+df_num_st <- as_tibble(scale(df_num))
+df_num_st <- cbind(df_num_st, Arm = data$Arm)
+index_st <- sample.split(df_num_st$Arm, SplitRatio = .7)
+knn_tr <- subset(df_num_st, index == TRUE)
+knn_valid <- subset(df_num_st, index == FALSE)
+index_knn_tr <- sample.split(knn_tr$Arm, SplitRatio = .5)
+knn_tr_train <- subset(knn_tr, index_knn_tr == TRUE)
+knn_tr_test <- subset(knn_tr, index_knn_tr == FALSE)
+pred_knn <- knn(knn_tr_train[,-16], knn_tr_test[,-16], knn_tr_train[,16], k = 5)
+# Next we validate the predicted labels with the actual labels:
+CFM_knn <- table(pred_knn, knn_tr_test[,16])
+CFM_knn
+classification_accuracy_knn <- sum(diag(CFM_knn))/sum(CFM_knn)
+classification_accuracy_knn
+```
+From the above table we cn clearly see that the model did not do a very good job
+predicting samples from group 2. From the latter arm, 8 have been miss classified 
+as group 1 samples and from group 1, 1 has been miss classified as group 2 sample, 
+and 7 were correctly identified. The accuracy of the model was 68.9%.
 
 ## *Random Forest model*
 Another classification model is the Random Forest (RF) model, that is an evolved form
@@ -597,6 +622,17 @@ predict_valid_radial_st <- predict(svm_model_radial_st, final_val_set_st)
 mean_radial_valid_st <- mean(predict_valid_radial_st == final_val_set_st$Arm)
 mean_radial_valid_st
 ```
+## *KNN*
+```{r}
+pred_knn_valid <- knn(knn_tr_train[,-16], knn_valid[,-16], knn_tr_train[,16], k = 5)
+# Next we validate the predicted labels with the actual labels:
+CFM_knn_valid <- table(pred_knn_valid, knn_valid[,16])
+CFM_knn_valid
+classification_accuracy_knn_valid <- sum(diag(CFM_knn_valid))/sum(CFM_knn_valid)
+classification_accuracy_knn_valid
+```
+
+
 ## *RMF*
 Validating the RMF model:
 ```{r, warning=FALSE, message=FALSE}
@@ -615,16 +651,19 @@ classification_accuracy_val
 model_results_tibble <- tibble(Models = c("SVM Linear","SVM Radial", 
                                           "SVM Standardized Linear", 
                                           "SVM Standardized Radial",
-                                          "RMF"),
+                                          "RMF", "KNN"),
                                TrainFit = c(mean_linear_train, mean_radial_train,
                                             mean_linear_train_st, mean_radial_train_st,
-                                            classification_accuracy_tr),
+                                            classification_accuracy_tr,
+                                            '-'),
                                TestFit = c(mean_linear_test, mean_radial_test,
                                            mean_linear_test_st, mean_radial_test_st,
-                                           classification_accuracy_test),
+                                           classification_accuracy_test,
+                                           classification_accuracy_knn),
                                Validation = c(mean_linear_valid, mean_radial_valid, 
                                               mean_linear_valid_st, mean_radial_valid_st,
-                                              classification_accuracy_val)) %>% 
+                                              classification_accuracy_val,
+                                              classification_accuracy_knn_valid)) %>% 
   mutate(TestFit = sprintf("%0.4f", TestFit))
   
 model_results_tibble
