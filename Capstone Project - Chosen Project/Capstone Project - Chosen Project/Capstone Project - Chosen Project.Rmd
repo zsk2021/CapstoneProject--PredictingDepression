@@ -5,20 +5,53 @@ date: '2022-05-20'
 output:
   pdf_document:
     toc: true
+bibliography: references.bib
 ---
 
 # **Introduction**  
+Major depressive disorder (MDD) is the most common type of mood disorders, affecting 
+as much as 121 million people worldwide [@zsk]. MDD is characterized by multiple symptoms 
+including anhedonia, depressed mood, suicidal thoughts, loss of appetite, and psychomotor 
+retardation [@sharma2015]. Despite the available treatment options (e.g. SSRIs, [@zsk]) and  
+a somewhat limited knowledge about the biology and risk factors of MDD, there is still 
+a lack of information about the pathobiochemical background of the disease. Therefore, 
+in order to provide a better support and an early diagnosis of patients suffering from the disease,
+it is important to map the molecular alteration and hallmarks of MDD. 
 
 # **Project Background**  
+The Genome and Biomedical Sciences Facility from the University of California have collected 
+cerebrospinal fluid (CSF) and peripheral blood from more than 600 subjects from the general population 
+to map molecular and biochemical properties. Participants then completed the Beck Depression Inventory (BDI), 
+a well-established questionnaire for measuring severity of depression. Subjects who 
+were identified as suffering from MDD (based on their BDI score), were gender and age 
+matched with a control group, and an untargeted analysis of primary metabolites was performed. 
+The primary obejctive of the study was to identify metabolites that could help predicting 
+and/or diagnosing MDD in patients. 
+
+# **Project Overview**
+In this Capstone Project, I have chosen to work with the data acquired by the Genome and 
+Biomedical Sciences Facility from the University of California from human blood plasma. 
+The data was downloaded from the https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1 website, and was converted into a dataframe, which was used for the 
+analysis. An initial distribution analysis was done, followed by two-sample t-test-, 
+correlation-, and k-means clustering analysis. The model building was done on the selected 
+parameters, that showed a significant difference between the two arms.
+The three models used were support vector machines, random forest models, and k-nearest neighbour 
+models. Due to the nature of the measured parameters, normalization of the data was 
+also done in some instances.
 
 # *Methods and Data Analysis Workflow*  
+During my analysis I applied Shapiro-Wilk's test for mapping distribution of the parameters. 
+This was followed by two-sample t-test. From this latter analysis parameters showing a 
+significant difference were selected and a correlation analysis was done.
+Next, k-means clustering analysis was done, to see if the clusters can be separated well 
+between the two arms. Next support vectore machine and k-NN models were fit on a standardized data 
+of the selected parameters, and random forest was fit on the non-standardized data.
 
 # **Data preparation**  
-First we load the data sheet downloaded from the Metabolomics website:
-https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1
-I have edited the data set; some of the measured molecules have been removed from the list
-for simplicity and also due to these did not have names, only ID numbers. A simplified
-data sheet is used to do the analysis.
+First the data was downloaded from the Metabolomics website (see url above).
+Next, I the data set was edited; some of the measured molecules have been removed from the list
+for simplicity and also due to these did not have names (only ID numbers). A simplified
+data sheet was used to do the analysis.
 ```{r, warning=FALSE, message=FALSE}
 library("readxl")
 library("dplyr")
@@ -422,29 +455,6 @@ mean_linear_test <- mean(predict_test_linear == tr_set_test$Arm)
 mean_linear_test
 ```
 
-```{r, warning=FALSE, message=FALSE}
-# SVM model with radial kernel:
-svm_model_radial <- svm(as.factor(Arm)~
-                          as.numeric(tr_set_train$`stearic acid`) +
-                          as.numeric(tr_set_train$sorbitol) +
-                          as.numeric(tr_set_train$nicotinamide) +
-                          as.numeric(tr_set_train$mannose) +
-                          as.numeric(tr_set_train$`heptadecanoic acid`) +
-                          as.numeric(tr_set_train$`glutaric acid`) +
-                          as.numeric(tr_set_train$`glutamic acid`) +
-                          as.numeric(tr_set_train$`behenic acid`),
-                 data = tr_set_train, method = "C-classification", 
-                 kernel = "radial", gamma = 1, cost = 1)
-# Getting the mean of the correctly predicted arm on the train data set:
-predict_tr_radial <- predict(svm_model_radial, tr_set_train)
-mean_radial_train <- mean(predict_tr_radial == tr_set_train$Arm)
-mean_radial_train
-# Getting the mean of the correctly predicted arm on the test data set:
-predict_test_radial <- predict(svm_model_radial, tr_set_test)
-mean_radial_test <- mean(predict_test_radial == tr_set_test$Arm)
-mean_radial_test
-```
-
 Next, I will apply SVM on the standardized data set. I will use the scale() function, that 
 calculates the Z-score for each variable.
 ```{r, warning=FALSE, message=FALSE}
@@ -490,27 +500,6 @@ mean_linear_train_st
 predict_test_linear_st <- predict(svm_model_linear_st, tr_set_test_st)
 mean_linear_test_st <- mean(predict_test_linear_st == tr_set_test_st$Arm)
 mean_linear_test_st
-
-# SVM model with radial kernel:
-svm_model_radial_st <- svm(as.factor(Arm)~
-                          as.numeric(tr_set_train_st$`stearic acid`) +
-                          as.numeric(tr_set_train_st$sorbitol) +
-                          as.numeric(tr_set_train_st$nicotinamide) +
-                          as.numeric(tr_set_train_st$mannose) +
-                          as.numeric(tr_set_train_st$`heptadecanoic acid`) +
-                          as.numeric(tr_set_train_st$`glutaric acid`) +
-                          as.numeric(tr_set_train_st$`glutamic acid`) +
-                          as.numeric(tr_set_train_st$`behenic acid`),
-                        data = tr_set_train_st, method = "C-classification", 
-                        kernel = "radial", gamma = 1, cost = 2)
-# Getting the mean of the correctly predicted arm on the train data set:
-predict_tr_radial_st <- predict(svm_model_radial_st, tr_set_train_st)
-mean_radial_train_st <- mean(predict_tr_radial_st == tr_set_train_st$Arm)
-mean_radial_train_st
-# Getting the mean of the correctly predicted arm on the test data set:
-predict_test_radial_st <- predict(svm_model_radial_st, tr_set_test_st)
-mean_radial_test_st <- mean(predict_test_radial_st == tr_set_test_st$Arm)
-mean_radial_test_st
 ```
 ## *k-NN model
 In this section I will work with the standardized dataset, adn I will fit a k-NN model
@@ -609,18 +598,10 @@ Validating the SVM model (linear and radial)
 predict_valid_linear <- predict(svm_model_linear, final_val_set)
 mean_linear_valid <- mean(predict_valid_linear == final_val_set$Arm)
 mean_linear_valid
-# Non-standardized Values - Radial
-predict_valid_radial <- predict(svm_model_radial, final_val_set)
-mean_radial_valid <- mean(predict_valid_radial == final_val_set$Arm)
-mean_radial_valid
 # Standardized Values - Linear
 predict_valid_linear_st <- predict(svm_model_linear_st, final_val_set_st)
 mean_linear_valid_st <- mean(predict_valid_linear_st == final_val_set_st$Arm)
 mean_linear_valid_st
-# Standardized Values - Radial
-predict_valid_radial_st <- predict(svm_model_radial_st, final_val_set_st)
-mean_radial_valid_st <- mean(predict_valid_radial_st == final_val_set_st$Arm)
-mean_radial_valid_st
 ```
 ## *KNN*
 ```{r}
@@ -648,20 +629,19 @@ classification_accuracy_val
 
 # **Results and conclusions**  
 ```{r, warning=FALSE, message=FALSE}
-model_results_tibble <- tibble(Models = c("SVM Linear","SVM Radial", 
-                                          "SVM Standardized Linear", 
-                                          "SVM Standardized Radial",
+model_results_tibble <- tibble(Models = c("SVM Linear", 
+                                          "SVM Standardized Linear",
                                           "RMF", "KNN"),
-                               TrainFit = c(mean_linear_train, mean_radial_train,
-                                            mean_linear_train_st, mean_radial_train_st,
+                               TrainFit = c(mean_linear_train,
+                                            mean_linear_train_st,
                                             classification_accuracy_tr,
                                             '-'),
-                               TestFit = c(mean_linear_test, mean_radial_test,
-                                           mean_linear_test_st, mean_radial_test_st,
+                               TestFit = c(mean_linear_test,
+                                           mean_linear_test_st,
                                            classification_accuracy_test,
                                            classification_accuracy_knn),
-                               Validation = c(mean_linear_valid, mean_radial_valid, 
-                                              mean_linear_valid_st, mean_radial_valid_st,
+                               Validation = c(mean_linear_valid,
+                                              mean_linear_valid_st,
                                               classification_accuracy_val,
                                               classification_accuracy_knn_valid)) %>% 
   mutate(TestFit = sprintf("%0.4f", TestFit))
@@ -670,3 +650,6 @@ model_results_tibble
 ```
 
 # **Future perspectives**  
+
+# **References**
+
