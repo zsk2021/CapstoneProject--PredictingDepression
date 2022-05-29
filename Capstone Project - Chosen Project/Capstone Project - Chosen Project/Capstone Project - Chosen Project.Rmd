@@ -1,7 +1,7 @@
 ---
-title: "Capstone Project - Predicting Depression from plasma measurements"
+title: "Capstone Project - Predicting Depression from Plasma Measurements"
 author: "Zsombor Szoke-Kovacs"
-date: '2022-05-20'
+date: '2022-05-31'
 output:
   pdf_document:
     toc: true
@@ -12,7 +12,7 @@ bibliography: references.bib
 Major depressive disorder (MDD) is the most common type of mood disorders, affecting 
 as much as 121 million people worldwide [@zsk]. MDD is characterized by multiple symptoms 
 including anhedonia, depressed mood, suicidal thoughts, loss of appetite, and psychomotor 
-retardation [@sharma2015]. Despite the available treatment options (e.g. SSRIs, [@zsk]) and  
+retardation [@sharma2015]. Despite the available treatment options (e.g. SSRIs, [@zsk]) and 
 a somewhat limited knowledge about the biology and risk factors of MDD, there is still 
 a lack of information about the pathobiochemical background of the disease. Therefore, 
 in order to provide a better support and an early diagnosis of patients suffering from the disease,
@@ -31,7 +31,7 @@ and/or diagnosing MDD in patients.
 # **Project Overview**
 In this Capstone Project, I have chosen to work with the data acquired by the Genome and 
 Biomedical Sciences Facility from the University of California from human blood plasma. 
-The data was downloaded from the https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1 website, and was converted into a dataframe, which was used for the 
+The data was downloaded from the **https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1** website, and was converted into a dataframe, which was used for the 
 analysis. An initial distribution analysis was done, followed by two-sample t-test-, 
 correlation-, and k-means clustering analysis. The model building was done on the selected 
 parameters, that showed a significant difference between the two arms.
@@ -39,7 +39,7 @@ The three models used were support vector machines, random forest models, and k-
 models. Due to the nature of the measured parameters, normalization of the data was 
 also done in some instances.
 
-# *Methods and Data Analysis Workflow*  
+# **Methods and Data Analysis Workflow**  
 During my analysis I applied Shapiro-Wilk's test for mapping distribution of the parameters. 
 This was followed by two-sample t-test. From this latter analysis parameters showing a 
 significant difference were selected and a correlation analysis was done.
@@ -49,7 +49,7 @@ of the selected parameters, and random forest was fit on the non-standardized da
 
 # **Data preparation**  
 First the data was downloaded from the Metabolomics website (see url above).
-Next, I the data set was edited; some of the measured molecules have been removed from the list
+Next, the data set was edited; some of the measured molecules have been removed from the list
 for simplicity and also due to these did not have names (only ID numbers). A simplified
 data sheet was used to do the analysis.
 ```{r, warning=FALSE, message=FALSE}
@@ -127,7 +127,7 @@ distribution of the data is not significantly different from the normal distribu
 In other words, if the p-value is >0.05 we can assume normality. 
 First, I loop through the truncated and transposed list and generate Shapiro-Wilk's test for 
 each column in the data set. I use the magicfor library to record p-values in a vector:
-Note: p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
+ *Note:* p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
 argument.
 ```{r, warning=FALSE, message=FALSE, results= 'hide'}
 library(magicfor)
@@ -238,8 +238,8 @@ group_1_tidy <- semi_join(group_1_tidy, group_2_tidy, by = "rownames")
 # Keep everything from Group 2 with a match in Group 1:
 group_2_tidy <- semi_join(group_2_tidy, group_1_tidy, by = "rownames")
 # Investigating the dimensions of the two newly generated data frames, we can see, that
-# both arms have 78 measured parameters, as well as 48 and 49 sample count (plus the two columns
-# with p-values and row names), respectively.
+# both arms have 78 measured parameters, as well as 48 and 49 sample count (plus 
+# the two columns with p-values and row names), respectively.
 group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], 
                            ncol = dim(group_1_tidy)[2])
 group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], 
@@ -267,7 +267,7 @@ group_2_tidy_t %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy_t)[1],
 Now, that I have the two data frames with the same measured parameters in both, and all 
 of the measurements show approximately normal distribution, I can test the vectors for 
 significant differences.
-Note: p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
+ *Note:* p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
 argument.
 ```{r, warning=FALSE, message=FALSE, results = 'hide'}
 # Two-sample t-test by looping through the columns:
@@ -287,8 +287,8 @@ twosample_ttest$`rownames` <- colnames(group_1_tidy_t)
 # Filtering out measured parameters that showed significant differences between
 # the two groups: 
 twosample_ttest_significant <- twosample_ttest %>% filter(`testresults$p.value` <= 0.05)
-# There are 15 measured parameters that show normal distribution, and there is a significant difference
-# between the two groups:
+# There are 15 measured parameters that show normal distribution, and there is 
+# a significant difference between the two groups:
 twosample_ttest_significant
 ```
 ## *Correlation analysis*  
@@ -303,9 +303,9 @@ group_1_final <- group_1_final[,c(-49,-50)]
 group_2_final <- semi_join(group_2_tidy, twosample_ttest_significant, by = 'rownames')
 group_2_final <- group_2_final[,c(-50,-51)]
 
-# Here I have two data frames from the two arms, one control and one diagnosed with depression,
-# where only the parameters of interest are included. The data frames consist of 48 and 49 
-# patients, respectively:
+# Here I have two data frames from the two arms, one control and one diagnosed with 
+# depression, where only the parameters of interest are included. The data frames 
+# consist of 48 and 49 patients, respectively:
 group_1_final %>% summarise(Arm = 'Group 1', nrow = dim(group_1_final)[1], 
                             ncol = dim(group_1_final)[2])
 group_2_final %>% summarise(Arm = 'Group 2', nrow = dim(group_2_final)[1], 
@@ -329,9 +329,9 @@ df <- subset(df, select = -rownames)
 ```
 Testing for correlation:
 ```{r, warning=FALSE, message=FALSE}
-# In the above section, I generated my data set with all 15 parameters and the entire cohort.
-# I now transpose this and will do a correlation analysis to see if any of these
-# parameters are correlated:
+# In the above section, I generated my data set with all 15 parameters and the entire 
+# cohort. I now transpose this and will do a correlation analysis to see if any of 
+# these parameters are correlated:
 df_t <- as.data.frame(t(df))
 # A quick plotting of the data shows that there is a potential correlation between
 # stearic acid and heptadecanoic acid: commented out code, otherwise too many plots 
@@ -343,7 +343,8 @@ plot(df_t$`stearic acid`, df_t$`heptadecanoic acid`)
 cor.test(as.numeric(df_t$`stearic acid`), as.numeric(df_t$`heptadecanoic acid`))
 # Here, I convert all df_t to numeric, so I can do a correlation analysis:
 df_num <-as.data.frame(sapply(df_t, as.numeric))
-# This also shows, that the only correlation is between stearic acid and heptadecanoic acid:
+# This also shows, that the only correlation is between stearic acid and heptadecanoic 
+# acid:
 cor_15_param <- as.data.frame(cor(df_num))
 cor_15_param %>% filter(cor_15_param >= 0.7)
 ```
@@ -381,7 +382,8 @@ I used K-means clustering to see the structure of the data:
 # I used the df_t data set, that is a transposed format of the 15 significant measurements
 # from the two arms. Parameters are in the columns, and samples in rows. 
 # First, lets find the optimum number of clusters: we use the wssplot() function,
-# of which the code was copied from this website: https://www.projectpro.io/data-science-in-r-programming-tutorial/k-means-clustering-techniques-tutorial
+# of which the code was copied from this website:   
+#  https://www.projectpro.io/data-science-in-r-programming-tutorial/k-means-clustering-techniques-tutorial
 wssplot <- function(data, nc=15, seed=1234){
                   wss <- (nrow(data)-1)*sum(apply(data,2,var))
                       for (i in 2:nc){
@@ -393,8 +395,8 @@ wssplot <- function(data, nc=15, seed=1234){
        }
 wssplot(df_num)
 # From the above plot, we can see that the optimum number of clusters 3 (the smallest 
-# possible number, where the plot shows an elbow shape). So, we will apply the cluster numbers 3
-# in our k-means cluster analysis.
+# possible number, where the plot shows an elbow shape). So, we will apply the 
+# cluster numbers 3 in our k-means cluster analysis.
 KM_3 <- kmeans(df_num, 3)
 print(KM_3)
 # There are two ways to evaluate cluster analysis: 1.) looking at the cluster plot or
@@ -402,10 +404,10 @@ print(KM_3)
 # Fist we look at the cluster plot by using the autoplot() function:
 autoplot(KM_3, df_num, frame = TRUE)
 # From the above plot, we can see that the clusters 1 and 2 overlap and there is no clear 
-# separation between the classes. As the number of observation increases, the cluster plot becomes more
-# 'busy', therefore, another way to evaluate the k-means cluster analysis and see the distinctiveness 
-# of the clusters is to look at the center of the particular clusters. Centroids 
-# can be derived from the k-means analysis object:
+# separation between the classes. As the number of observation increases, the cluster 
+# plot becomes more 'busy', therefore, another way to evaluate the k-means cluster 
+# analysis and see the distinctiveness of the clusters is to look at the center of 
+# the particular clusters. Centroids can be derived from the k-means analysis object:
 KM_3$centers
 # # From the above values, we can see that the centers of the selected parameters are 
 # different, suggesting that the clusters are distinct in nature. A good separation for 
@@ -449,12 +451,12 @@ svm_model_linear <- svm(as.factor(Arm)~
                         gamma = 1, cost = 2)
 # Getting the mean of the correctly predicted arm on the train data set:
 predict_tr_linear <- predict(svm_model_linear, tr_set_train)
-mean_linear_train <- mean(predict_tr_linear == tr_set_train$Arm)
-mean_linear_train
+classification_accuracy_SVM_tr <- mean(predict_tr_linear == tr_set_train$Arm)
+classification_accuracy_SVM_tr
 # Getting the mean of the correctly predicted arm on the test data set:
 predict_test_linear <- predict(svm_model_linear, tr_set_test)
-mean_linear_test <- mean(predict_test_linear == tr_set_test$Arm)
-mean_linear_test
+classification_accuracy_SVM_test <- mean(predict_test_linear == tr_set_test$Arm)
+classification_accuracy_SVM_test
 ```
 
 Next, I will apply SVM on the standardized data set. I will use the scale() function, that 
@@ -494,15 +496,15 @@ svm_model_linear_st <- svm(as.factor(Arm)~
                         gamma = 1, cost = 2)
 # Getting the mean of the correctly predicted arm on the train data set:
 predict_tr_linear_st <- predict(svm_model_linear_st, tr_set_train_st)
-mean_linear_train_st <- mean(predict_tr_linear_st == as.factor(tr_set_train_st$Arm))
-mean_linear_train_st
+classification_accuracy_SVM_st_tr <- mean(predict_tr_linear_st == as.factor(tr_set_train_st$Arm))
+classification_accuracy_SVM_st_tr
 # Getting the mean of the correctly predicted arm on the test data set:
 predict_test_linear_st <- predict(svm_model_linear_st, tr_set_test_st)
-mean_linear_test_st <- mean(predict_test_linear_st == tr_set_test_st$Arm)
-mean_linear_test_st
+classification_accuracy_SVM_st_test <- mean(predict_test_linear_st == tr_set_test_st$Arm)
+classification_accuracy_SVM_st_test
 ```
 ## *k-NN model
-In this section I will work with the standardized dataset, adn I will fit a k-NN model
+In this section, I will work with the standardized data set, adn I will fit a k-NN model
 using this data set:
 ```{r}
 # Re-initializing the scaled data set used for the k-means calculation above
@@ -576,8 +578,8 @@ CFM_tr <- table(tr_set_train_RMF$Arm, tr_set_train_RMF$predict_RMF_tr)
 CFM_tr
 # Calculating the accuracy of the testing data can be measured by adding together 
 # all the diagonal values, and dividing with the sum of all values:
-classification_accuracy_tr <- sum(diag(CFM_tr)/sum(CFM_tr))
-classification_accuracy_tr
+classification_accuracy_RMF_tr <- sum(diag(CFM_tr)/sum(CFM_tr))
+classification_accuracy_RMF_tr
 ```
 Testing the model on the test set:
 ```{r, warning=FALSE, message=FALSE}
@@ -585,8 +587,8 @@ predict_RMF_test <- predict(RMF, tr_set_test_RMF)
 tr_set_test_RMF$predict_RMF_test <- predict_RMF_test
 CFM_test <- table(tr_set_test_RMF$Arm, tr_set_test_RMF$predict_RMF_test)
 CFM_test
-classification_accuracy_test <- sum(diag(CFM_test)/sum(CFM_test))
-classification_accuracy_test
+classification_accuracy_RMF_test <- sum(diag(CFM_test)/sum(CFM_test))
+classification_accuracy_RMF_test
 ```
 A standardized data has also been tested for building an RMF model, however, this also 
 led to a low accuracy.
@@ -597,14 +599,14 @@ Validating the SVM model (linear and radial)
 ```{r, warning=FALSE, message=FALSE}
 # Non-standardized Values - Linear
 predict_valid_linear <- predict(svm_model_linear, final_val_set)
-mean_linear_valid <- mean(predict_valid_linear == final_val_set$Arm)
-mean_linear_valid
+classification_accuracy_SVM_val <- mean(predict_valid_linear == final_val_set$Arm)
+classification_accuracy_SVM_val
 # Standardized Values - Linear
 predict_valid_linear_st <- predict(svm_model_linear_st, final_val_set_st)
-mean_linear_valid_st <- mean(predict_valid_linear_st == final_val_set_st$Arm)
-mean_linear_valid_st
+classification_accuracy_SVM_st_val <- mean(predict_valid_linear_st == final_val_set_st$Arm)
+classification_accuracy_SVM_st_val
 ```
-## *KNN*
+## *k-NN*
 ```{r}
 pred_knn_valid <- knn(knn_tr_train[,-7], knn_valid[,-7], knn_tr_train[,7], k = 5)
 # Next we validate the predicted labels with the actual labels:
@@ -624,33 +626,52 @@ mean_RMF_valid
 final_val_set_RMF$predict_valid_RMF <- predict_valid_RMF
 CFM_val <- table(final_val_set_RMF$Arm, final_val_set_RMF$predict_valid_RMF)
 CFM_val
-classification_accuracy_val <- sum(diag(CFM_val)/sum(CFM_val))
-classification_accuracy_val
+classification_accuracy_RMF_val <- sum(diag(CFM_val)/sum(CFM_val))
+classification_accuracy_RMF_val
 ```
 
 # **Results and conclusions**  
+The project looked into the accuracy of different models in the prediction of major 
+depressive disorder, in 97 patients. Altogether more than 140 parameters were measured 
+from blood plasma, followed by the testing for significant difference of the mean and 
+correlation analysis between two arms. From this analysis, 15 parameters were selected 
+and k-means clustering was performed. This latter clustering analysis revealed 6 parameters that look promising for the potential differentiation of the two arms. The 6 selected parameters were used to fit support vector machine, k-NN and random forest models.
+The results are summarized below:
 ```{r, warning=FALSE, message=FALSE}
 model_results_tibble <- tibble(Models = c("SVM Linear", 
                                           "SVM Standardized Linear",
-                                          "RMF", "KNN"),
-                               TrainFit = c(mean_linear_train,
-                                            mean_linear_train_st,
-                                            classification_accuracy_tr,
+                                          "RMF", "k-NN"),
+                               TrainFit = c(classification_accuracy_SVM_tr,
+                                            classification_accuracy_SVM_st_tr,
+                                            classification_accuracy_RMF_tr,
                                             '-'),
-                               TestFit = c(mean_linear_test,
-                                           mean_linear_test_st,
-                                           classification_accuracy_test,
+                               TestFit = c(classification_accuracy_SVM_test,
+                                           classification_accuracy_SVM_st_test,
+                                           classification_accuracy_RMF_test,
                                            classification_accuracy_knn),
-                               Validation = c(mean_linear_valid,
-                                              mean_linear_valid_st,
-                                              classification_accuracy_val,
+                               Validation = c(classification_accuracy_SVM_val,
+                                              classification_accuracy_SVM_st_val,
+                                              classification_accuracy_RMF_val,
                                               classification_accuracy_knn_valid)) %>% 
   mutate(TestFit = sprintf("%0.4f", TestFit))
   
 model_results_tibble
 ```
+From the above results we can clearly see, that the lowest accuracy was produced 
+by the SVM models. SVM was fit on raw data as well as standardized values. These 
+resulted in very similar accuracy values. SVM was also fit with radial kernel, but 
+this resulted in about 50% accuracy. The k-NN model was fit with a k value of 5 and 
+produced the highest overall accuracy of about 86%.  
 
 # **Future perspectives**  
+A possible cause for the low accuracy of the different models could be that there 
+is no real relationship in the measured parameters between the two arms, resulting 
+in a low overall accuracy in differentiating between healthy and depressed patients. 
+To be able to separate the two groups based on these biochemical markers, a higher 
+number of participants would be necessary. Another approach would be to identify new 
+bio marker groups which are specific to patients diagnosed with MDD. Furthermore,
+additional factors, such as the BDI score, or lifestyle parameters could also be added 
+to the data set, which would allow the further stratification of the variables.
 
 # **References**
 
