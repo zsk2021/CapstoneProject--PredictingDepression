@@ -34,7 +34,7 @@ Biomedical Sciences Facility from the University of California from human blood 
 The data was downloaded from the **https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=ST000062&StudyType=MS&ResultType=1** website, and was converted into a dataframe, which was used for the 
 analysis. An initial distribution analysis was done, followed by two-sample t-test-, 
 correlation-, and k-means clustering analysis. The model building was done on the selected 
-parameters, that showed a significant difference between the two arms.
+parameters that showed a significant difference between the two arms.
 The three models used were support vector machines, random forest models, and k-nearest neighbour 
 models. Due to the nature of the measured parameters, normalization of the data was 
 also done in some instances.
@@ -44,14 +44,14 @@ During my analysis I applied Shapiro-Wilk's test for mapping distribution of the
 This was followed by two-sample t-test. From this latter analysis parameters showing a 
 significant difference were selected and a correlation analysis was done.
 Next, k-means clustering analysis was done, to see if the clusters can be separated well 
-between the two arms. Next support vectore machine and k-NN models were fit on a standardized data 
+between the two arms. Next, support vector machine and k-NN models were fit on a standardized data 
 of the selected parameters, and random forest was fit on the non-standardized data.
 
-# **Data preparation**  
+# **Data Preparation**  
 First the data was downloaded from the Metabolomics website (see url above).
 Next, the data set was edited; some of the measured molecules have been removed from the list
 for simplicity and also due to these did not have names (only ID numbers). A simplified
-data sheet was used to do the analysis.
+data sheet was used for the analysis.
 ```{r, warning=FALSE, message=FALSE}
 library("readxl")
 library("dplyr")
@@ -95,14 +95,15 @@ I first separate the two arms and remove unnecessary columns:
 group_1 <- data %>% group_by(Arm) %>% filter(Arm == "Group 1 - Score 0")
 # A data set without columns containing other characters than numbers is created:
 group_1_truncated <- group_1[, c(-1, -2)]
+# Same for group 2:
 group_2 <- data %>% group_by(Arm) %>% filter(Arm == "Group 2 - Score 50")
 group_2_truncated <- group_2[, c(-1, -2)]
 ```
-# **Data analysis**  
-## *Data distribution*  
-I first look at the distribution of the data for each measurement for the two arms, 
-by generating graphs with the codes below. Due to these produce many plots (144 plots per arm), 
-I commented these out in the .rmd file.
+# **Data Analysis**  
+## *Data Distribution*  
+I first look at the distribution of the data for each measurement from the two arms, 
+by generating graphs with the codes below. Due to the code below would result in a 
+high number of plots (144 plots per arm), I commented this out in the .rmd file.
 ```{r, warning=FALSE, message=FALSE}
 # Group 1:
 
@@ -126,15 +127,14 @@ that “the sample distribution is normal”. So, if the p-value is >0.05, that 
 distribution of the data is not significantly different from the normal distribution. 
 In other words, if the p-value is >0.05 we can assume normality. 
 First, I loop through the truncated and transposed list and generate Shapiro-Wilk's test for 
-each column in the data set. I use the magicfor library to record p-values in a vector:
- *Note:* p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
+each column in the data set. I use the magicfor library to record p-values in a vector:  
+**Note:** p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
 argument.
 ```{r, warning=FALSE, message=FALSE, results= 'hide'}
 library(magicfor)
 # Group 1:
 magic_for(print)
 for (c in group_1_truncated){
-  # shap test for each col
   shap_test <- shapiro.test(as.numeric(c))
   output <- shap_test$p.value
   print(output)
@@ -148,7 +148,6 @@ group_1_truncated_with_pvalues <- rbind(group_1_truncated, pvalues_group_1)
 # Group 2:
 magic_for(print)
 for (c in group_2_truncated){
-  # shap test for each col
   shap_test <- shapiro.test(as.numeric(c))
   output <- shap_test$p.value
   print(output)
@@ -161,7 +160,8 @@ group_2_truncated_with_pvalues <- rbind(group_2_truncated,pvalues_group_2)
 # Remove magicalization:
 magic_free()
 ```
-The last row in these two data frames are the Shapiro-Wilk's p-values:
+The last row in these two data frames are the Shapiro-Wilk's p-values. The original 
+column numbers are 48 and 49, respectively (see above).
 ```{r, warning=FALSE, message=FALSE}
 group_1_truncated_with_pvalues %>% 
   summarise(Arm = 'Group 2', 
@@ -212,9 +212,11 @@ normal. In other words, I keep all measured parameters, where the p-value was >0
 ```{r, warning=FALSE, message=FALSE}
 group_1_tidy <- group_1_tidy %>% filter(`Shapiro-Wilk's p-values`>0.05)
 group_2_tidy <- group_2_tidy %>% filter(`Shapiro-Wilk's p-values`>0.05)
-# There are 97 and 112 measured parameters where the p-value is >0.05 in Group 1 
-# and Group 2, respectively. Group 1 has 48 patients, whereas Group 2 has 49. The extra
-# column in each data frame is the Shapiro-Wilk's p-value.
+```
+There are 97 and 112 measured parameters where the p-value is >0.05 in Group 1 
+and Group 2, respectively. Group 1 has 48 patients, whereas Group 2 has 49. The extra
+column in each data frame is the Shapiro-Wilk's p-value.
+```{r, warning=FALSE, message=FALSE}
 group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], 
                            ncol = dim(group_1_tidy)[2])
 group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], 
@@ -228,7 +230,7 @@ from Group 2, that have a match in Group 1.
 # Adding row names as an extra column, so I can use semi_join:
 group_1_tidy <- cbind(group_1_tidy, rownames = rownames(group_1_tidy))
 group_2_tidy <- cbind(group_2_tidy, rownames = rownames(group_2_tidy))
-# we should have one extra column in each data frame:
+# We should have one extra column in each data frame:
 group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], 
                            ncol = dim(group_1_tidy)[2])
 group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], 
@@ -237,26 +239,30 @@ group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1],
 group_1_tidy <- semi_join(group_1_tidy, group_2_tidy, by = "rownames")
 # Keep everything from Group 2 with a match in Group 1:
 group_2_tidy <- semi_join(group_2_tidy, group_1_tidy, by = "rownames")
-# Investigating the dimensions of the two newly generated data frames, we can see, that
-# both arms have 78 measured parameters, as well as 48 and 49 sample count (plus 
-# the two columns with p-values and row names), respectively.
+```
+Investigating the dimensions of the two newly generated data frames, we can see, that
+both arms have 78 measured parameters, as well as 48 and 49 sample count (plus 
+the two columns with p-values and row names), respectively.
+```{r, warning=FALSE, message=FALSE}
 group_1_tidy %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy)[1], 
                            ncol = dim(group_1_tidy)[2])
 group_2_tidy %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy)[1], 
                            ncol = dim(group_2_tidy)[2])
 ```
-## *Two-sample t-test*  
+## *Two-Sample t-Test*  
 In this next section, I will calculate two-sample t-tests for the selected parameters, so I can
 see if there is a significant difference in any normally distributed parameters between the two groups.
 First, I transpose the data frame generated above and remove unnecessary rows.
 ```{r, warning=FALSE, message=FALSE}
 # Transpose tidy data, so I can loop through the columns: Group 1
 group_1_tidy_t <- as.data.frame(t(group_1_tidy))
-# Removing last two rows with p-values and row names:
+# Removing last two rows with p-values and row names; these are not needed for the
+# calculation of two-sample t-test.
 group_1_tidy_t <- group_1_tidy_t[c(-49,-50),]
 # Transpose tidy data, so I can loop through the columns: Group 2
 group_2_tidy_t <- as.data.frame(t(group_2_tidy))
-# Removing last two rows with p-values and row names:
+# Removing last two rows with p-values and row names; these are not needed for the
+# calculation of two-sample t-test.
 group_2_tidy_t <- group_2_tidy_t[c(-50,-51),]
 # The two data set has 78 measured parameters and 48 and 49 samples, respectively:
 group_1_tidy_t %>% summarise(Arm = 'Group 1', nrow = dim(group_1_tidy_t)[1], 
@@ -266,8 +272,8 @@ group_2_tidy_t %>% summarise(Arm = 'Group 2', nrow = dim(group_2_tidy_t)[1],
 ```
 Now, that I have the two data frames with the same measured parameters in both, and all 
 of the measurements show approximately normal distribution, I can test the vectors for 
-significant differences.
- *Note:* p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
+significant differences.  
+**Note:** p-values are not printed in the .rmd file, as specified by the "results= 'hide'" 
 argument.
 ```{r, warning=FALSE, message=FALSE, results = 'hide'}
 # Two-sample t-test by looping through the columns:
@@ -287,12 +293,12 @@ twosample_ttest$`rownames` <- colnames(group_1_tidy_t)
 # Filtering out measured parameters that showed significant differences between
 # the two groups: 
 twosample_ttest_significant <- twosample_ttest %>% filter(`testresults$p.value` <= 0.05)
-# There are 15 measured parameters that show normal distribution, and there is 
-# a significant difference between the two groups:
 twosample_ttest_significant
 ```
-## *Correlation analysis*  
-From the previous section, I have a set of measured parameters that show significant difference
+There are 15 measured parameters that show normal distribution, and there is 
+a significant difference between the two groups:
+## *Correlation Analysis*  
+From the previous section, I have a set of measured parameters that show significant differences
 of the mean between the two arms. To see the actual relationship between the two groups, I will use correlation
 analysis for the 15 parameters. Initially, I will subset the two data frames group_1_tidy
 and group_2_tidy to only consist of the 15 parameters of interest.
@@ -302,16 +308,17 @@ group_1_final <- group_1_final[,c(-49,-50)]
 
 group_2_final <- semi_join(group_2_tidy, twosample_ttest_significant, by = 'rownames')
 group_2_final <- group_2_final[,c(-50,-51)]
-
-# Here I have two data frames from the two arms, one control and one diagnosed with 
-# depression, where only the parameters of interest are included. The data frames 
-# consist of 48 and 49 patients, respectively:
+```
+Here I have two data frames from the two arms, one control and one diagnosed with 
+depression, where only the parameters of interest are included. The data frames 
+consist of 48 and 49 patients, respectively:
+```{r, warning=FALSE, message=FALSE}
 group_1_final %>% summarise(Arm = 'Group 1', nrow = dim(group_1_final)[1], 
                             ncol = dim(group_1_final)[2])
 group_2_final %>% summarise(Arm = 'Group 2', nrow = dim(group_2_final)[1], 
                             ncol = dim(group_2_final)[2])
 ```
-Now that I have the two data frames with the 15 measured parameters that showed approximately
+Now, that I have the two data frames with the 15 measured parameters that showed approximately
 normal distribution and significant differences between the two groups, I will merge the 
 two arms, and will generate a new data frame with all of the subjects and the 15 measured parameters.
 I will use this data frame for my further work:
@@ -327,15 +334,16 @@ rownames(df) <- df$rownames
 # Removing rownames column results in the final data set df:
 df <- subset(df, select = -rownames)
 ```
-Testing for correlation:
+In the above section, I generated my data set with all 15 parameters and the entire 
+cohort. I now transpose this and will do a correlation analysis to see if any of 
+these parameters are correlated:
 ```{r, warning=FALSE, message=FALSE}
-# In the above section, I generated my data set with all 15 parameters and the entire 
-# cohort. I now transpose this and will do a correlation analysis to see if any of 
-# these parameters are correlated:
 df_t <- as.data.frame(t(df))
-# A quick plotting of the data shows that there is a potential correlation between
-# stearic acid and heptadecanoic acid: commented out code, otherwise too many plots 
-# would have been printed.
+```
+A quick plotting of the data shows that there is a potential correlation between
+stearic acid and heptadecanoic acid: commented out code, otherwise too many plots 
+would have been printed.
+```{r, warning=FALSE, message=FALSE}
 # plot(df_t)
 plot(df_t$`stearic acid`, df_t$`heptadecanoic acid`)
 # A correlation analysis between the two parameters shows a strong positive correlation
@@ -348,7 +356,7 @@ df_num <-as.data.frame(sapply(df_t, as.numeric))
 cor_15_param <- as.data.frame(cor(df_num))
 cor_15_param %>% filter(cor_15_param >= 0.7)
 ```
-## *Linearity between the two arms*  
+## *Linearity Between the Two Arms*  
 I have also looked at the other features, whether these are linearly separable between the two arms.
 Values from each measured parameters are plotted on y and the arm is plotted on x.
 ```{r, warning=FALSE, message=FALSE}
@@ -358,32 +366,18 @@ Values from each measured parameters are plotted on y and the arm is plotted on 
 # }
 ```
 Based on the plots generated by the above code, the values do not show a linear 
-association between the two arms.
+association between the two arms. Hence, I will not use linear regression in my analysis.
 
-# **Model fitting**  
+# **Model Fitting**  
 In this section of my project, I will fit different models on the data set that contains 
 the 15 normally distributed/significantly different parameters.
-## *Creating the train and test data sets*   
-```{r, warning=FALSE, message=FALSE}
-# Creating a training and test set from the data frame df_num:
-# First I add the arm to the data set, so the split can be done based on these features:
-df_num_sp <- cbind(df_num, Arm = data$Arm)
-index <- sample.split(df_num_sp$Arm, SplitRatio = .7)
-tr_set <- subset(df_num_sp, index == TRUE)
-final_val_set <- subset(df_num_sp, index == FALSE)
-# Splitting the training set into further training and test sets:
-index_train <- sample.split(tr_set$Arm, SplitRatio = .5)
-tr_set_train <- subset(tr_set, index_train == TRUE)
-tr_set_test <- subset(tr_set, index_train == FALSE)
-```
 ## *K-means Clustering*  
-I used K-means clustering to see the structure of the data:
+I used the df_t data set, that is a transposed format of the 15 significant measurements
+from the two arms. Parameters are in the columns, and samples in rows. 
+First, lets find the optimum number of clusters: we use the wssplot() function,
+of which the code was copied from this website:   
+https://www.projectpro.io/data-science-in-r-programming-tutorial/k-means-clustering-techniques-tutorial
 ```{r, warning=FALSE, message=FALSE}
-# I used the df_t data set, that is a transposed format of the 15 significant measurements
-# from the two arms. Parameters are in the columns, and samples in rows. 
-# First, lets find the optimum number of clusters: we use the wssplot() function,
-# of which the code was copied from this website:   
-#  https://www.projectpro.io/data-science-in-r-programming-tutorial/k-means-clustering-techniques-tutorial
 wssplot <- function(data, nc=15, seed=1234){
                   wss <- (nrow(data)-1)*sum(apply(data,2,var))
                       for (i in 2:nc){
@@ -394,29 +388,37 @@ wssplot <- function(data, nc=15, seed=1234){
               wss
        }
 wssplot(df_num)
-# From the above plot, we can see that the optimum number of clusters 3 (the smallest 
-# possible number, where the plot shows an elbow shape). So, we will apply the 
-# cluster numbers 3 in our k-means cluster analysis.
+```
+From the above plot, we can see that the optimum number of clusters 3 (the smallest 
+possible number, where the plot shows an elbow shape). So, we will apply the 
+cluster numbers 3 in our k-means cluster analysis.
+```{r, warning=FALSE, message=FALSE}
 KM_3 <- kmeans(df_num, 3)
 print(KM_3)
-# There are two ways to evaluate cluster analysis: 1.) looking at the cluster plot or
-# or 2.) look at the cluster centers.
-# Fist we look at the cluster plot by using the autoplot() function:
+```
+There are two ways to evaluate cluster analysis: 1.) looking at the cluster plot or
+or 2.) look at the cluster centers. First we look at the cluster plot by using the 
+autoplot() function:
+```{r, warning=FALSE, message=FALSE}
 autoplot(KM_3, df_num, frame = TRUE)
-# From the above plot, we can see that the clusters 1 and 2 overlap and there is no clear 
-# separation between the classes. As the number of observation increases, the cluster 
-# plot becomes more 'busy', therefore, another way to evaluate the k-means cluster 
-# analysis and see the distinctiveness of the clusters is to look at the center of 
-# the particular clusters. Centroids can be derived from the k-means analysis object:
+```
+From the above plot, we can see that the clusters 1 and 2 overlap and there is no clear 
+separation between the classes. As the number of observation increases, the cluster 
+plot becomes more 'busy', therefore, another way to evaluate the k-means cluster 
+analysis and see the distinctiveness of the clusters is to look at the center of 
+the particular clusters. Centroids can be derived from the k-means analysis object:
+```{r, warning=FALSE, message=FALSE}
 KM_3$centers
-# # From the above values, we can see that the centers of the selected parameters are 
-# different, suggesting that the clusters are distinct in nature. A good separation for 
-# the clusters in the case of stearic acid, nicotinamide, myo-inositol, mannose, 
-# heptadecanoic acid, and glutamic acid can be seen.
-# Now, if I repeat the same analysis with only two clusters (based on the 2 arms and 
-# also on a potential elbow on the below plot at cluster 2), I can see a better separation
-# for the centers in the case of stearic acid, sorbitol, nicotinamide, heptadecanoic acid,
-# glutamic acid, and behenic acid.
+```
+From the above values, we can see that the centers of the selected parameters are 
+different, suggesting that the clusters are distinct in nature. A good separation for 
+the clusters in the case of stearic acid, nicotinamide, myo-inositol, mannose, 
+heptadecanoic acid, and glutamic acid can be seen.
+Now, if I repeat the same analysis with only two clusters (based on the 2 arms and 
+also on a potential elbow on the below plot at cluster 2), I can see a better separation
+for the centroids in the case of stearic acid, sorbitol, nicotinamide, heptadecanoic acid,
+glutamic acid, and behenic acid.
+```{r, warning=FALSE, message=FALSE}
 wssplot(df_num)
 KM_2 <- kmeans(df_num, 2)
 print(KM_2)
@@ -426,39 +428,51 @@ KM_2$centers
 However, if we compare the within cluster sum of squares for the first and the second
 run (3 and 2 clusters, respectively), we can see that the analysis with 2 clusters
 is a less good fit (53.5%) than that of the 3 clusters (75.2%). Hence, I will be 
-using the parameters selected by the k-means analysis ran with 3 clusters: stearic acid, 
-nicotinamide, myo-inositol, mannose, heptadecanoic acid, and glutamic acid.
+using the parameters selected by the k-means analysis ran with 3 clusters; these are 
+stearic acid, nicotinamide, myo-inositol, mannose, heptadecanoic acid, and glutamic acid.
 
 ## *Support Vector Machine*  
-Due to I am predicting a categorical variable, using numeric variables, this is a classical example of 
-a classification model. In this example, the arm is the predicted, whereas the parameters
-are the predictor variables.
-Now, that I have the parameters that show the best separation,I will train the SVM 
+*Creating the Train and Test Data Sets*   
+```{r, warning=FALSE, message=FALSE}
+# Creating a training and test set from the data frame df_num.
+# First I add the arm to the data set, so the split can be done based on these features:
+df_num_sp <- cbind(df_num, Arm = data$Arm)
+index <- sample.split(df_num_sp$Arm, SplitRatio = .7)
+SVM_tr <- subset(df_num_sp, index == TRUE)
+SVM_val <- subset(df_num_sp, index == FALSE)
+# Splitting the training set into further training and test sets:
+index_train <- sample.split(SVM_tr$Arm, SplitRatio = .5)
+SVM_train <- subset(SVM_tr, index_train == TRUE)
+SVM_test <- subset(SVM_tr, index_train == FALSE)
+```
+Due to that we are predicting a categorical variable, using numeric variables, a good 
+approach is to fit  a classification model. In this example, the arm is the predicted 
+variables, whereas the parameters are the predictor variables.
+Now, that I have the parameters that show the best separation, I will train the SVM 
 on the training set. Here I train the SVM to predict the Arm, based on the variables 
 that showed  significant difference between the two arms, and gave the best cluster 
 separation: stearic acid, nicotinamide, myo-inositol, mannose, heptadecanoic acid, 
 and glutamic acid.
 ```{r, warning=FALSE, message=FALSE}
-# SVM model with linear kernel
+# SVM model with linear kernel: raw values
 svm_model_linear <- svm(as.factor(Arm)~
-                          as.numeric(tr_set_train$`stearic acid`) +
-                          as.numeric(tr_set_train$nicotinamide) +
-                          as.numeric(tr_set_train$`myo-inositol`) +
-                          as.numeric(tr_set_train$mannose) +
-                          as.numeric(tr_set_train$`heptadecanoic acid`) +
-                          as.numeric(tr_set_train$`glutamic acid`),
-                        data = tr_set_train, method = "C", kernel = "linear", 
+                          as.numeric(SVM_train$`stearic acid`) +
+                          as.numeric(SVM_train$nicotinamide) +
+                          as.numeric(SVM_train$`myo-inositol`) +
+                          as.numeric(SVM_train$mannose) +
+                          as.numeric(SVM_train$`heptadecanoic acid`) +
+                          as.numeric(SVM_train$`glutamic acid`),
+                        data = SVM_train, method = "C", kernel = "linear", 
                         gamma = 1, cost = 2)
 # Getting the mean of the correctly predicted arm on the train data set:
-predict_tr_linear <- predict(svm_model_linear, tr_set_train)
-classification_accuracy_SVM_tr <- mean(predict_tr_linear == tr_set_train$Arm)
+predict_tr_linear <- predict(svm_model_linear, SVM_train)
+classification_accuracy_SVM_tr <- mean(predict_tr_linear == SVM_train$Arm)
 classification_accuracy_SVM_tr
 # Getting the mean of the correctly predicted arm on the test data set:
-predict_test_linear <- predict(svm_model_linear, tr_set_test)
-classification_accuracy_SVM_test <- mean(predict_test_linear == tr_set_test$Arm)
+predict_test_linear <- predict(svm_model_linear, SVM_test)
+classification_accuracy_SVM_test <- mean(predict_test_linear == SVM_test$Arm)
 classification_accuracy_SVM_test
 ```
-
 Next, I will apply SVM on the standardized data set. I will use the scale() function, that 
 calculates the Z-score for each variable.
 ```{r, warning=FALSE, message=FALSE}
@@ -466,47 +480,37 @@ calculates the Z-score for each variable.
 df_num_st <- as_tibble(scale(df_num))
 df_num_st <- cbind(df_num_st, Arm = data$Arm)
 index_st <- sample.split(df_num_st$Arm, SplitRatio = .7)
-tr_set_st <- subset(df_num_st, index == TRUE)
-final_val_set_st <- subset(df_num_st, index == FALSE)
+SVM_tr_st <- subset(df_num_st, index == TRUE)
+SVM_val_st <- subset(df_num_st, index == FALSE)
 # Splitting the standardized training set into further training and test sets:
-index_train_st <- sample.split(tr_set_st$Arm, SplitRatio = .5)
-tr_set_train_st <- subset(tr_set_st, index_train_st == TRUE)
-tr_set_test_st <- subset(tr_set_st, index_train_st == FALSE)
-# Getting the wssplot to see the optimum number of clusters:
-wssplot(df_num_st[,-16])
-KM_3_st <- kmeans(df_num_st[,-16], 4)
-print(KM_3_st)
-autoplot(KM_3_st, df_num_st[,-16], frame = TRUE)
-KM_3_st$centers
-wssplot(df_num_st[,-16])
-KM_2_st <- kmeans(df_num_st[,-16], 2)
-print(KM_2_st)
-autoplot(KM_2_st, df_num_st[,-16], frame = TRUE)
-KM_2_st$centers
-
-# SVM model with linear kernel
+index_train_st <- sample.split(SVM_tr_st$Arm, SplitRatio = .5)
+SVM_train_st <- subset(SVM_tr_st, index_train_st == TRUE)
+SVM_test_st <- subset(SVM_tr_st, index_train_st == FALSE)
+# SVM model with linear kernel: standardized data
 svm_model_linear_st <- svm(as.factor(Arm)~
-                          as.numeric(tr_set_train_st$`stearic acid`) +
-                          as.numeric(tr_set_train_st$nicotinamide) +
-                          as.numeric(tr_set_train_st$mannose) +
-                          as.numeric(tr_set_train_st$`myo-inositol`) +
-                          as.numeric(tr_set_train_st$`heptadecanoic acid`) +
-                          as.numeric(tr_set_train_st$`glutamic acid`),
-                        data = tr_set_train_st, method = "C", kernel = "linear", 
+                          as.numeric(SVM_train_st$`stearic acid`) +
+                          as.numeric(SVM_train_st$nicotinamide) +
+                          as.numeric(SVM_train_st$mannose) +
+                          as.numeric(SVM_train_st$`myo-inositol`) +
+                          as.numeric(SVM_train_st$`heptadecanoic acid`) +
+                          as.numeric(SVM_train_st$`glutamic acid`),
+                        data = SVM_train_st, method = "C", kernel = "linear", 
                         gamma = 1, cost = 2)
-# Getting the mean of the correctly predicted arm on the train data set:
-predict_tr_linear_st <- predict(svm_model_linear_st, tr_set_train_st)
-classification_accuracy_SVM_st_tr <- mean(predict_tr_linear_st == as.factor(tr_set_train_st$Arm))
+# Getting the mean of the correctly predicted arm on the standardized train data set:
+predict_tr_linear_st <- predict(svm_model_linear_st, SVM_train_st)
+classification_accuracy_SVM_st_tr <- mean(predict_tr_linear_st == SVM_train_st$Arm)
 classification_accuracy_SVM_st_tr
-# Getting the mean of the correctly predicted arm on the test data set:
-predict_test_linear_st <- predict(svm_model_linear_st, tr_set_test_st)
-classification_accuracy_SVM_st_test <- mean(predict_test_linear_st == tr_set_test_st$Arm)
+# Getting the mean of the correctly predicted arm on the standardized test data set:
+predict_test_linear_st <- predict(svm_model_linear_st, SVM_test_st)
+classification_accuracy_SVM_st_test <- mean(predict_test_linear_st == SVM_test_st$Arm)
 classification_accuracy_SVM_st_test
 ```
+Standardized data was also used to perform k-means clustering analysis, but this 
+resulted in a low within cluster sum of squares values for k = 2 (~14%) and k = 4 
+(~27%).
 ## *k-NN model
-In this section, I will work with the standardized data set, adn I will fit a k-NN model
-using this data set:
-```{r}
+In this section, I will fit a k-NN model using a standardized data set
+```{r, warning=FALSE, message=FALSE}
 # Re-initializing the scaled data set used for the k-means calculation above
 df_num_st <- as_tibble(scale(df_num))
 df_num_st <- cbind(df_num_st, Arm = data$Arm)
@@ -515,21 +519,21 @@ index_st <- sample.split(df_num_st$Arm, SplitRatio = .7)
 knn_tr <- subset(df_num_st, index == TRUE)
 knn_valid <- subset(df_num_st, index == FALSE)
 index_knn_tr <- sample.split(knn_tr$Arm, SplitRatio = .5)
-knn_tr_train <- subset(knn_tr, index_knn_tr == TRUE)
-knn_tr_test <- subset(knn_tr, index_knn_tr == FALSE)
-pred_knn <- knn(knn_tr_train[,-7], knn_tr_test[,-7], knn_tr_train[,7], k = 5)
+knn_train <- subset(knn_tr, index_knn_tr == TRUE)
+knn_test <- subset(knn_tr, index_knn_tr == FALSE)
+pred_knn <- knn(knn_train[,-7], knn_test[,-7], knn_train[,7], k = 21)
 # Next we validate the predicted labels with the actual labels:
-CFM_knn <- table(pred_knn, knn_tr_test[,7])
+CFM_knn <- table(pred_knn, knn_test[,7])
 CFM_knn
+```
+From the above table we can clearly see that the model did not do a very good job
+predicting samples from group 2. The overall accuracy can be seen below:
+```{r, warning=FALSE, message=FALSE}
 classification_accuracy_knn <- sum(diag(CFM_knn))/sum(CFM_knn)
 classification_accuracy_knn
 ```
-From the above table we can clearly see that the model did not do a very good job
-predicting samples from group 2. From the latter arm, 8 have been miss classified 
-as group 1 samples and from group 1, 1 sample has been miss classified as group 2 sample, 
-and 7 were correctly identified.
 
-## *Random Forest model*
+## *Random Forest Model*
 Another classification model is the Random Forest (RF) model, that is an evolved form
 of the Decision Trees (DTs). In this section, I will build a RF model for the 15 selected
 parameters. I will use the data set converted into numbers df_num. First, I will 
@@ -540,7 +544,7 @@ titles, so these do not consist of any special characters or spaces:
 df_num_RMF <- cbind(df_num, Arm = data$Arm)
 # Selecting parameters highlighted by the k-nearest model:
 df_num_RMF <- df_num_RMF %>% select(1, 6, 7, 8, 10, 12, 16)
-# Converting the parameter names, so these do not consist space or any illegal characters:
+# Converting the parameter names, so these do not consist of space or any illegal characters:
 df_colnames <- sub(' ', '_', colnames(df_num_RMF))
 df_colnames <- sub('-', '_', df_colnames)
 # Adding back the converted names to the column headers.
@@ -550,12 +554,12 @@ Next, I will create a new set of train and test sets:
 ```{r, warning=FALSE, message=FALSE}
 # Creating a training and test set from the data frame df_num_RMF:
 index_RMF <- sample.split(df_num_RMF$Arm, SplitRatio = .7)
-tr_set_RMF <- subset(df_num_RMF, index == TRUE)
-final_val_set_RMF <- subset(df_num_RMF, index == FALSE)
+RMF_tr <- subset(df_num_RMF, index == TRUE)
+RMF_val <- subset(df_num_RMF, index == FALSE)
 # Splitting the train set into further train and test sets:
-index_train_RMF <- sample.split(tr_set_RMF$Arm, SplitRatio = .7)
-tr_set_train_RMF <- subset(tr_set_RMF, index_train == TRUE)
-tr_set_test_RMF <- subset(tr_set_RMF, index_train == FALSE)
+index_train_RMF <- sample.split(RMF_tr$Arm, SplitRatio = .5)
+RMF_train <- subset(RMF_tr, index_train == TRUE)
+RMF_test <- subset(RMF_tr, index_train == FALSE)
 ```
 Building the RMF model:
 ```{r, warning=FALSE, message=FALSE}
@@ -565,50 +569,50 @@ RMF <- randomForest(as.factor(Arm)~nicotinamide +
                       heptadecanoic_acid +
                       glutamic_acid + 
                       myo_inositol, 
-                    data = tr_set_train_RMF)
+                    data = RMF_train)
 
 # Now that we have built the RMF model, we use the predict function to get the
 # predicted values for the data set:
-predict_RMF_tr <- predict(RMF, tr_set_train_RMF)
+predict_RMF_tr <- predict(RMF, RMF_train)
 # Adding the predicted arms to the data set:
-tr_set_train_RMF$predict_RMF_tr <- predict_RMF_tr
+RMF_train$predict_RMF_tr <- predict_RMF_tr
 # Compare the predictions and the actual values to see the accuracy of the model
 # using the table() function (building a confusion matrix):
-CFM_tr <- table(tr_set_train_RMF$Arm, tr_set_train_RMF$predict_RMF_tr)
-CFM_tr
+CFM_RMF_tr <- table(RMF_train$Arm, RMF_train$predict_RMF_tr)
+CFM_RMF_tr
 # Calculating the accuracy of the testing data can be measured by adding together 
 # all the diagonal values, and dividing with the sum of all values:
-classification_accuracy_RMF_tr <- sum(diag(CFM_tr)/sum(CFM_tr))
+classification_accuracy_RMF_tr <- sum(diag(CFM_RMF_tr)/sum(CFM_RMF_tr))
 classification_accuracy_RMF_tr
 ```
 Testing the model on the test set:
 ```{r, warning=FALSE, message=FALSE}
-predict_RMF_test <- predict(RMF, tr_set_test_RMF)
-tr_set_test_RMF$predict_RMF_test <- predict_RMF_test
-CFM_test <- table(tr_set_test_RMF$Arm, tr_set_test_RMF$predict_RMF_test)
-CFM_test
-classification_accuracy_RMF_test <- sum(diag(CFM_test)/sum(CFM_test))
+predict_RMF_test <- predict(RMF, RMF_test)
+RMF_test$predict_RMF_test <- predict_RMF_test
+CFM_RMF_test <- table(RMF_test$Arm, RMF_test$predict_RMF_test)
+CFM_RMF_test
+classification_accuracy_RMF_test <- sum(diag(CFM_RMF_test)/sum(CFM_RMF_test))
 classification_accuracy_RMF_test
 ```
 A standardized data has also been tested for building an RMF model, however, this also 
-led to a low accuracy.
+led to a low overall accuracy.
 
 # **Validation**
 ## *SVM*  
-Validating the SVM model (linear and radial)
+Validating the SVM model (linear and radial):
 ```{r, warning=FALSE, message=FALSE}
 # Non-standardized Values - Linear
-predict_valid_linear <- predict(svm_model_linear, final_val_set)
-classification_accuracy_SVM_val <- mean(predict_valid_linear == final_val_set$Arm)
+predict_valid_linear <- predict(svm_model_linear, SVM_val)
+classification_accuracy_SVM_val <- mean(predict_valid_linear == SVM_val$Arm)
 classification_accuracy_SVM_val
 # Standardized Values - Linear
-predict_valid_linear_st <- predict(svm_model_linear_st, final_val_set_st)
-classification_accuracy_SVM_st_val <- mean(predict_valid_linear_st == final_val_set_st$Arm)
+predict_valid_linear_st <- predict(svm_model_linear_st, SVM_val_st)
+classification_accuracy_SVM_st_val <- mean(predict_valid_linear_st == SVM_val_st$Arm)
 classification_accuracy_SVM_st_val
 ```
 ## *k-NN*
-```{r}
-pred_knn_valid <- knn(knn_tr_train[,-7], knn_valid[,-7], knn_tr_train[,7], k = 5)
+```{r, warning=FALSE, message=FALSE}
+pred_knn_valid <- knn(knn_train[,-7], knn_valid[,-7], knn_train[,7], k = 15)
 # Next we validate the predicted labels with the actual labels:
 CFM_knn_valid <- table(pred_knn_valid, knn_valid[,7])
 CFM_knn_valid
@@ -620,19 +624,17 @@ classification_accuracy_knn_valid
 ## *RMF*
 Validating the RMF model:
 ```{r, warning=FALSE, message=FALSE}
-predict_valid_RMF <- predict(RMF, final_val_set_RMF)
-mean_RMF_valid <- mean(predict_valid_RMF == final_val_set_RMF$Arm)
-mean_RMF_valid
-final_val_set_RMF$predict_valid_RMF <- predict_valid_RMF
-CFM_val <- table(final_val_set_RMF$Arm, final_val_set_RMF$predict_valid_RMF)
-CFM_val
-classification_accuracy_RMF_val <- sum(diag(CFM_val)/sum(CFM_val))
+predict_valid_RMF <- predict(RMF, RMF_val)
+RMF_val$predict_valid_RMF <- predict_valid_RMF
+CFM_RMF_val <- table(RMF_val$Arm, RMF_val$predict_valid_RMF)
+CFM_RMF_val
+classification_accuracy_RMF_val <- sum(diag(CFM_RMF_val)/sum(CFM_RMF_val))
 classification_accuracy_RMF_val
 ```
 
-# **Results and conclusions**  
+# **Results and Conclusions**  
 The project looked into the accuracy of different models in the prediction of major 
-depressive disorder, in 97 patients. Altogether more than 140 parameters were measured 
+depressive disorder in 97 patients. Altogether more than 140 parameters were measured 
 from blood plasma, followed by the testing for significant difference of the mean and 
 correlation analysis between two arms. From this analysis, 15 parameters were selected 
 and k-means clustering was performed. This latter clustering analysis revealed 6 parameters that look promising for the potential differentiation of the two arms. The 6 selected parameters were used to fit support vector machine, k-NN and random forest models.
@@ -658,20 +660,20 @@ model_results_tibble <- tibble(Models = c("SVM Linear",
 model_results_tibble
 ```
 From the above results we can clearly see, that the lowest accuracy was produced 
-by the SVM models. SVM was fit on raw data as well as standardized values. These 
-resulted in very similar accuracy values. SVM was also fit with radial kernel, but 
-this resulted in about 50% accuracy. The k-NN model was fit with a k value of 5 and 
-produced the highest overall accuracy of about 86%.  
+by the k-NN model. SVM was fit on raw data as well as standardized values. These 
+resulted in very similar accuracy values, around 70%. SVM was also fit with radial kernel, but this resulted in about 50% accuracy. The k-NN model was fit with k values ranging 
+from 3 to 21 and produced one of the lowest overall accuracy.
 
-# **Future perspectives**  
-A possible cause for the low accuracy of the different models could be that there 
+# **Future Perspectives**  
+A possible cause of the low accuracy of the different models could be that there 
 is no real relationship in the measured parameters between the two arms, resulting 
-in a low overall accuracy in differentiating between healthy and depressed patients. 
+in a high error rate in differentiating between healthy and depressed patients. 
 To be able to separate the two groups based on these biochemical markers, a higher 
-number of participants would be necessary. Another approach would be to identify new 
+number of participants would be necessary. This latter could potentially result in a 
+better separation between the arms. Another approach would be to identify new 
 bio marker groups which are specific to patients diagnosed with MDD. Furthermore,
-additional factors, such as the BDI score, or lifestyle parameters could also be added 
-to the data set, which would allow the further stratification of the variables.
+additional factors, such as the BDI score, or lifestyle parameters could help fine 
+tuning the models, leading to higher accuracy rates.
 
 # **References**
 
